@@ -424,3 +424,4 @@ export const propertyTypeEmojis: Record<string, string> = {
   mansion: '🏰', apartment: '🏢', duplex: '🏠', terrace: '🏘',
   penthouse: '🌆', land: '🌿', commercial: '🏭', shortlet: '🛎', bungalow: '🏡',
 }
+export * from '@/lib/types'

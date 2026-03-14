@@ -956,3 +956,203 @@ export const commercialListings: Property[] = [
     status: 'active', agentId: 'a2', views: 2187, enquiries: 54, yearBuilt: 2017, parkingSpaces: 12, createdAt: '2026-02-05'
   },
 ]
+
+// ── New Developments ───────────────────────────────────────────────────────
+export interface Development {
+  id: string
+  slug: string
+  name: string
+  developer: string
+  developerLogo: string
+  neighborhood: string
+  address: string
+  latitude: number
+  longitude: number
+  type: 'residential' | 'mixed_use' | 'commercial' | 'estate'
+  status: 'off_plan' | 'under_construction' | 'ready' | 'sold_out'
+  completionDate: string
+  totalUnits: number
+  availableUnits: number
+  priceFrom: number
+  priceTo: number
+  description: string
+  longDescription: string
+  amenities: string[]
+  unitTypes: { type: string; beds: number; sizeSqm: number; priceFrom: number; available: number }[]
+  features: string[]
+  gallery: string[]
+  virtualTour: boolean
+  isVerified: boolean
+  isFeatured: boolean
+  isNew: boolean
+  agentId: string
+  views: number
+  enquiries: number
+  yearBuilt: number
+  floors: number
+  constructionPct: number
+  paymentPlan: string
+  warranty: string
+  tags: string[]
+}
+
+export const newDevelopments: Development[] = [
+  {
+    id: 'd1', slug: 'ocean-view-towers-gra-phase-2',
+    name: 'Ocean View Towers', developer: 'Zenith Properties Nigeria Ltd',
+    developerLogo: 'zenith-props', neighborhood: 'GRA Phase 2',
+    address: 'Plot 12, Peter Odili Road, GRA Phase 2, Port Harcourt',
+    latitude: 4.8121, longitude: 7.0478,
+    type: 'residential', status: 'under_construction',
+    completionDate: 'Q4 2026', totalUnits: 48, availableUnits: 19,
+    priceFrom: 145000000, priceTo: 650000000,
+    description: 'Port Harcourt\'s most anticipated luxury residential tower. 22 floors of premium apartments with panoramic views of the Garden City and the Bonny River.',
+    longDescription: 'Ocean View Towers redefines luxury living in Port Harcourt. A collaboration between Zenith Properties and award-winning Lagos architect firm Studio Black, the 22-storey tower features floor-to-ceiling glazing, private balconies on every unit, a rooftop infinity pool, and a ground-floor retail podium. Targeting the city\'s oil & gas executives, diaspora returnees, and high-net-worth residents who demand international-standard finishes in the heart of GRA Phase 2.',
+    amenities: ['Rooftop Infinity Pool', '24-hr Concierge', 'Residents\' Gym', 'Underground Parking', 'Smart Home System', 'Generator (Full Building)', 'Fibre Internet', 'CCTV & Access Control', 'Children\'s Play Zone', 'Business Lounge'],
+    unitTypes: [
+      { type: '1-Bedroom', beds: 1, sizeSqm: 85,  priceFrom: 145000000, available: 5 },
+      { type: '2-Bedroom', beds: 2, sizeSqm: 145, priceFrom: 245000000, available: 8 },
+      { type: '3-Bedroom', beds: 3, sizeSqm: 220, priceFrom: 385000000, available: 4 },
+      { type: 'Penthouse', beds: 4, sizeSqm: 480, priceFrom: 650000000, available: 2 },
+    ],
+    features: ['Floor-to-Ceiling Glazing', 'Italian Marble Floors', 'Miele Kitchen Appliances', 'Smart Lighting', 'Private Balconies', 'Rooftop Infinity Pool', 'Underground Parking'],
+    gallery: ['ovt-1', 'ovt-2', 'ovt-3', 'ovt-4'],
+    virtualTour: true, isVerified: true, isFeatured: true, isNew: false,
+    agentId: 'a1', views: 12456, enquiries: 487, yearBuilt: 2025, floors: 22,
+    constructionPct: 68,
+    paymentPlan: '30% deposit · 40% during construction · 30% on completion',
+    warranty: '10-year structural · 2-year fixtures & fittings',
+    tags: ['Luxury', 'Off-Plan', 'Oil & Gas', 'Investment', 'Panoramic Views'],
+  },
+  {
+    id: 'd2', slug: 'palm-grove-estate-woji',
+    name: 'Palm Grove Estate', developer: 'Greenfield Homes Nigeria',
+    developerLogo: 'greenfield-homes', neighborhood: 'Woji',
+    address: 'Ezimgbu Extension, Woji, Obio-Akpor, Rivers State',
+    latitude: 4.8318, longitude: 7.0208,
+    type: 'estate', status: 'under_construction',
+    completionDate: 'Q2 2026', totalUnits: 24, availableUnits: 11,
+    priceFrom: 85000000, priceTo: 195000000,
+    description: 'A secure gated estate of 24 luxury detached and semi-detached homes in fast-growing Woji. Solar-powered street lighting, paved roads, and a residents\' clubhouse.',
+    longDescription: 'Palm Grove Estate is Greenfield Homes\'s flagship gated community in Port Harcourt\'s most dynamic growth corridor. Designed by leading Nigerian urban planners, the estate features wide internal roads, mature landscaping, a central park, and a fully equipped clubhouse. Every home benefits from individual solar backup, pre-installed smart home wiring, and a 5-year developer warranty.',
+    amenities: ['Gated Entry (Biometric)', '24-hr Security', 'Clubhouse & Pool', 'Children\'s Park', 'Solar Street Lighting', 'Paved Roads', 'CCTV', 'Borehole (Estate)', 'Sports Court', 'Visitor Parking'],
+    unitTypes: [
+      { type: '3-Bed Detached', beds: 3, sizeSqm: 210, priceFrom: 85000000,  available: 4 },
+      { type: '4-Bed Detached', beds: 4, sizeSqm: 320, priceFrom: 130000000, available: 5 },
+      { type: '5-Bed Detached', beds: 5, sizeSqm: 450, priceFrom: 195000000, available: 2 },
+    ],
+    features: ['Detached Homes', 'BQ Included', 'Solar Backup', 'Smart Home Wiring', 'Landscaped Garden', 'Carport (2 cars)', 'Perimeter Wall'],
+    gallery: ['pge-1', 'pge-2', 'pge-3'],
+    virtualTour: true, isVerified: true, isFeatured: true, isNew: false,
+    agentId: 'a3', views: 8923, enquiries: 312, yearBuilt: 2024, floors: 2,
+    constructionPct: 85,
+    paymentPlan: '25% deposit · 12-month instalment plan available',
+    warranty: '5-year structural · 1-year fixtures & fittings',
+    tags: ['Gated Estate', 'Family Homes', 'Solar', 'Smart Home', 'Woji'],
+  },
+  {
+    id: 'd3', slug: 'heritage-court-old-gra',
+    name: 'Heritage Court', developer: 'Landmark Developments PH',
+    developerLogo: 'landmark-ph', neighborhood: 'Old GRA',
+    address: 'Old Station Road Extension, Old GRA, Port Harcourt',
+    latitude: 4.8079, longitude: 7.0441,
+    type: 'residential', status: 'ready',
+    completionDate: 'Ready Now', totalUnits: 12, availableUnits: 4,
+    priceFrom: 280000000, priceTo: 520000000,
+    description: 'Twelve exclusive terraced mansions in the heart of Old GRA. Completed and ready for immediate occupation. Colonial-inspired architecture with ultra-modern interiors.',
+    longDescription: 'Heritage Court pays homage to Old GRA\'s colonial architectural heritage while delivering thoroughly modern living standards. Twelve double-plot terraced mansions, each with BQ, private garden, and 3-car garage. Completed and snagged — ready for immediate occupation. This is one of the last premium residential developments in Old GRA\'s most sought-after enclave.',
+    amenities: ['Private Garden', '3-Car Garage', 'BQ', 'Swimming Pool (Communal)', '24-hr Security', 'CCTV', 'Generator', 'Borehole'],
+    unitTypes: [
+      { type: '4-Bed Terrace Mansion', beds: 4, sizeSqm: 380, priceFrom: 280000000, available: 2 },
+      { type: '5-Bed Terrace Mansion', beds: 5, sizeSqm: 460, priceFrom: 520000000, available: 2 },
+    ],
+    features: ['Ready to Move In', 'Private Garden', '3-Car Garage', 'BQ', 'Colonial Architecture', 'Modern Interiors', 'Marble Floors', 'Jacuzzi'],
+    gallery: ['hc-1', 'hc-2', 'hc-3'],
+    virtualTour: true, isVerified: true, isFeatured: true, isNew: false,
+    agentId: 'a2', views: 6712, enquiries: 234, yearBuilt: 2025, floors: 3,
+    constructionPct: 100,
+    paymentPlan: 'Outright purchase · Mortgage available (select banks)',
+    warranty: '3-year snagging warranty included',
+    tags: ['Ready Now', 'Luxury', 'Old GRA', 'Terrace Mansion', 'Immediate Occupation'],
+  },
+  {
+    id: 'd4', slug: 'nova-residences-rumuola',
+    name: 'Nova Residences', developer: 'Apex Construction Group',
+    developerLogo: 'apex-construction', neighborhood: 'Rumuola',
+    address: 'Airport Road Corridor, Rumuola, Obio-Akpor',
+    latitude: 4.8153, longitude: 7.0079,
+    type: 'residential', status: 'off_plan',
+    completionDate: 'Q3 2027', totalUnits: 64, availableUnits: 52,
+    priceFrom: 38000000, priceTo: 95000000,
+    description: 'Affordable luxury apartments for first-time buyers and young professionals near PH Airport. 64 units across 8 floors with structured payment plans.',
+    longDescription: 'Nova Residences makes premium apartment living accessible in Port Harcourt\'s fastest-growing suburb. Designed for first-time buyers, young professionals, and investors seeking strong rental yields near PH International Airport. Structured off-plan payment plans allow buyers to spread costs over 24 months while the development completes.',
+    amenities: ['Rooftop Terrace', '24-hr Security', 'Generator', 'Borehole', 'CCTV', 'Parking', 'Gym (Rooftop)', 'Laundry Room'],
+    unitTypes: [
+      { type: 'Studio',      beds: 1, sizeSqm: 42,  priceFrom: 38000000, available: 12 },
+      { type: '1-Bedroom',   beds: 1, sizeSqm: 65,  priceFrom: 52000000, available: 24 },
+      { type: '2-Bedroom',   beds: 2, sizeSqm: 95,  priceFrom: 75000000, available: 14 },
+      { type: '3-Bedroom',   beds: 3, sizeSqm: 130, priceFrom: 95000000, available: 2 },
+    ],
+    features: ['Off-Plan Investment', '24-Month Payment Plan', 'POP Ceiling', 'Kitchen Cabinets', 'All Ensuite', 'Rooftop Gym', 'Solar Panels'],
+    gallery: ['nova-1', 'nova-2', 'nova-3'],
+    virtualTour: false, isVerified: true, isFeatured: true, isNew: true,
+    agentId: 'a6', views: 9234, enquiries: 418, yearBuilt: 2026, floors: 8,
+    constructionPct: 15,
+    paymentPlan: '20% deposit · 24-month instalment · 0% interest',
+    warranty: '5-year structural warranty',
+    tags: ['Off-Plan', 'First-Time Buyers', 'Investment', 'Airport Road', 'Payment Plan'],
+  },
+  {
+    id: 'd5', slug: 'meridian-mixed-use-trans-amadi',
+    name: 'Meridian Hub', developer: 'TransCity Developers Ltd',
+    developerLogo: 'transcity-dev', neighborhood: 'Trans Amadi',
+    address: 'Industrial Crescent, Trans Amadi, Port Harcourt',
+    latitude: 4.8278, longitude: 7.0823,
+    type: 'mixed_use', status: 'under_construction',
+    completionDate: 'Q1 2027', totalUnits: 36, availableUnits: 28,
+    priceFrom: 65000000, priceTo: 320000000,
+    description: 'A mixed-use development with retail ground floor, corporate offices on floors 2–5, and luxury residential apartments from floor 6. Targeting oil & gas sector occupiers.',
+    longDescription: 'Meridian Hub is Trans Amadi\'s first true mixed-use tower — delivering retail, office, and residential in a single premium development. Ground-floor retail anchored by a convenience store and pharmacy. Corporate offices on floors 2–5 with Grade B spec. Luxury serviced apartments from floor 6 targeting oil & gas workers on rotation and senior executives. Designed by a UK-trained architect with 15 years of Nigerian commercial experience.',
+    amenities: ['Retail Podium', 'Grade B Offices', 'Residents\' Pool', 'Industrial Generator', 'Smart Access Control', 'CCTV', 'Parking (80 spaces)', 'Fibre Internet', 'EV Charging Points'],
+    unitTypes: [
+      { type: 'Office Floor (per floor)', beds: 0, sizeSqm: 320, priceFrom: 65000000, available: 3 },
+      { type: '2-Bed Apartment',          beds: 2, sizeSqm: 110, priceFrom: 120000000, available: 14 },
+      { type: '3-Bed Apartment',          beds: 3, sizeSqm: 165, priceFrom: 195000000, available: 8 },
+      { type: 'Penthouse',                beds: 4, sizeSqm: 360, priceFrom: 320000000, available: 3 },
+    ],
+    features: ['Mixed-Use Tower', 'Grade B Offices', 'EV Charging', 'Smart Access', 'Rooftop Terrace', 'Retail Ground Floor', 'Co-Working Lounge'],
+    gallery: ['meridian-1', 'meridian-2', 'meridian-3'],
+    virtualTour: true, isVerified: true, isFeatured: false, isNew: true,
+    agentId: 'a5', views: 5431, enquiries: 198, yearBuilt: 2025, floors: 14,
+    constructionPct: 42,
+    paymentPlan: '30% on contract · 70% on handover · Corporate lease options',
+    warranty: '7-year structural · 2-year MEP systems',
+    tags: ['Mixed-Use', 'Oil & Gas', 'Corporate', 'Investment', 'Trans Amadi'],
+  },
+  {
+    id: 'd6', slug: 'eleme-executive-villas',
+    name: 'Eleme Executive Villas', developer: 'Delta Prime Properties',
+    developerLogo: 'delta-prime', neighborhood: 'Eleme',
+    address: 'NLNG Corridor, Aleto Road, Eleme, Rivers State',
+    latitude: 4.7951, longitude: 7.1098,
+    type: 'estate', status: 'ready',
+    completionDate: 'Ready Now', totalUnits: 16, availableUnits: 6,
+    priceFrom: 165000000, priceTo: 280000000,
+    description: 'Sixteen fully detached executive villas designed specifically for NLNG, Shell, and Chevron personnel. Completed and ready for immediate corporate lettings or purchase.',
+    longDescription: 'Eleme Executive Villas was conceived from the ground up for Port Harcourt\'s oil & gas expatriate community. Each of the 16 detached villas meets international corporate housing standards with generator-backed 24-hr power, VSAT-ready infrastructure, reinforced security, and corporate lease documentation. Currently 10 of the 16 units are let to Shell and NLNG on corporate leases. 6 remain available for purchase or long-term corporate letting.',
+    amenities: ['Full Generator Backup', 'VSAT-Ready', '24-hr Guard Post', 'CCTV Perimeter', 'Swimming Pool (Shared)', 'Tennis Court', 'Borehole', 'Waste Management'],
+    unitTypes: [
+      { type: '3-Bed Executive Villa', beds: 3, sizeSqm: 280, priceFrom: 165000000, available: 3 },
+      { type: '4-Bed Executive Villa', beds: 4, sizeSqm: 380, priceFrom: 220000000, available: 2 },
+      { type: '5-Bed Executive Villa', beds: 5, sizeSqm: 480, priceFrom: 280000000, available: 1 },
+    ],
+    features: ['Fully Detached', 'BQ Included', 'Corporate Lease Ready', 'VSAT Infrastructure', 'Full Power Backup', 'Tennis Court', 'Pool'],
+    gallery: ['eleme-villas-1', 'eleme-villas-2'],
+    virtualTour: false, isVerified: true, isFeatured: false, isNew: false,
+    agentId: 'a4', views: 4312, enquiries: 145, yearBuilt: 2024, floors: 2,
+    constructionPct: 100,
+    paymentPlan: 'Outright purchase · Corporate lease (min 2 years)',
+    warranty: '3-year snagging · Annual maintenance contract available',
+    tags: ['Ready Now', 'Expat Housing', 'NLNG', 'Corporate Lease', 'Eleme'],
+  },
+]

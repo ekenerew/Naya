@@ -1156,3 +1156,243 @@ export const newDevelopments: Development[] = [
     tags: ['Ready Now', 'Expat Housing', 'NLNG', 'Corporate Lease', 'Eleme'],
   },
 ]
+
+// ── Land & Plot Listings ───────────────────────────────────────────────────
+export interface LandListing {
+  id: string
+  slug: string
+  title: string
+  neighborhood: string
+  address: string
+  lga: string
+  state: string
+  latitude: number
+  longitude: number
+  sizeSqm: number
+  sizeHectares: number
+  priceTotal: number
+  pricePerSqm: number
+  landUse: 'residential' | 'commercial' | 'industrial' | 'agricultural' | 'mixed_use' | 'institutional'
+  titleType: 'cof_o' | 'deed_of_assignment' | 'governors_consent' | 'survey_plan' | 'gazette' | 'family_land'
+  topography: 'flat' | 'gentle_slope' | 'elevated' | 'waterfront' | 'corner_plot'
+  utilities: string[]
+  access: string
+  description: string
+  features: string[]
+  nearbyLandmarks: string[]
+  isVerified: boolean
+  isFeatured: boolean
+  isNew: boolean
+  agentId: string
+  views: number
+  enquiries: number
+  createdAt: string
+  status: 'active' | 'sold' | 'under_offer'
+  plotNumber?: string
+  estateInfo?: string
+  zoningNotes?: string
+  priceNegotiable: boolean
+}
+
+export const landListings: LandListing[] = [
+  {
+    id: 'l1', slug: 'prime-land-gra-phase-2-1200sqm-l001',
+    title: 'Prime Residential Plot — 1,200 sqm, GRA Phase 2',
+    neighborhood: 'GRA Phase 2', address: 'Plot 47, Aba Road, GRA Phase 2',
+    lga: 'Port Harcourt', state: 'Rivers',
+    latitude: 4.8124, longitude: 7.0467,
+    sizeSqm: 1200, sizeHectares: 0.12,
+    priceTotal: 480000000, pricePerSqm: 400000,
+    landUse: 'residential', titleType: 'cof_o',
+    topography: 'flat', utilities: ['Electricity (PHEDC)', 'Water (PHWC)', 'Drainage', 'Tarred Road'],
+    access: 'Direct access from Aba Road with secondary access from a service lane.',
+    description: 'One of the last remaining large residential plots in the heart of GRA Phase 2. Fully documented with Certificate of Occupancy, perimeter-fenced, and survey plan available. Ideal for a luxury mansion, luxury apartments, or a premium shortlet complex.',
+    features: ['Certificate of Occupancy', 'Corner Plot', 'Perimeter Fenced', 'Survey Plan', 'Dual Road Access', 'Drainage Ready', 'Premium Zone'],
+    nearbyLandmarks: ['Government House (500m)', 'PHCC HQ (800m)', 'Polo Club (1.2km)'],
+    isVerified: true, isFeatured: true, isNew: false, agentId: 'a1',
+    views: 4321, enquiries: 187, createdAt: '2026-01-10', status: 'active',
+    plotNumber: 'GRA2/Res/0047', estateInfo: 'GRA Phase 2 Residential Zone',
+    zoningNotes: 'Approved for residential development up to G+3 floors.',
+    priceNegotiable: false,
+  },
+  {
+    id: 'l2', slug: 'woji-residential-plots-500sqm-l002',
+    title: 'Serviced Estate Plot — 500 sqm, Woji',
+    neighborhood: 'Woji', address: 'Palm Grove Layout, Woji Road, Obio-Akpor',
+    lga: 'Obio-Akpor', state: 'Rivers',
+    latitude: 4.8321, longitude: 7.0215,
+    sizeSqm: 500, sizeHectares: 0.05,
+    priceTotal: 65000000, pricePerSqm: 130000,
+    landUse: 'residential', titleType: 'deed_of_assignment',
+    topography: 'flat', utilities: ['Electricity', 'Borehole (Estate)', 'Paved Roads', 'Drainage', 'Street Lighting'],
+    access: 'Tarmacked estate road with security gate access.',
+    description: 'Serviced plot within a secured and well-planned residential estate in Woji. Part of a 40-plot layout with paved roads, drainage, and street lighting already installed. Deed of Assignment available. Best value residential land in Woji\'s fastest-growing corridor.',
+    features: ['Deed of Assignment', 'Serviced Plot', 'Paved Estate Roads', 'Street Lighting', 'Gated Estate', 'Survey Plan', 'Layout Approval'],
+    nearbyLandmarks: ['Ezimgbu Road (200m)', 'Polo Road Junction (600m)', 'Graceland School (900m)'],
+    isVerified: true, isFeatured: true, isNew: false, agentId: 'a3',
+    views: 3421, enquiries: 156, createdAt: '2026-01-25', status: 'active',
+    plotNumber: 'WJI/Res/Palm/012', estateInfo: 'Palm Grove Layout, Woji',
+    zoningNotes: 'Residential use only. Duplex and detached homes permitted.',
+    priceNegotiable: true,
+  },
+  {
+    id: 'l3', slug: 'old-gra-heritage-plot-800sqm-l003',
+    title: 'Heritage Zone Plot — 800 sqm, Old GRA',
+    neighborhood: 'Old GRA', address: 'Old Station Road, Old GRA',
+    lga: 'Port Harcourt', state: 'Rivers',
+    latitude: 4.8072, longitude: 7.0434,
+    sizeSqm: 800, sizeHectares: 0.08,
+    priceTotal: 320000000, pricePerSqm: 400000,
+    landUse: 'residential', titleType: 'governors_consent',
+    topography: 'elevated', utilities: ['Electricity (PHEDC)', 'PHWC Water', 'Tarred Road', 'Drainage'],
+    access: 'Fronts directly onto Old Station Road — one of PH\'s most prestigious addresses.',
+    description: 'Exceptional 800 sqm plot in Old GRA\'s most coveted street. Elevated topography offering excellent drainage and a commanding position. Governor\'s Consent registered. This calibre of plot in Old GRA is exceptionally rare — the last three comparable plots sold within 30 days of listing.',
+    features: ['Governor\'s Consent', 'Elevated Plot', 'Prestigious Address', 'Survey Plan', 'Clear Title', 'Heritage Zone'],
+    nearbyLandmarks: ['RSUTH (400m)', 'University of Port Harcourt (1.5km)', 'Government Girls College (600m)'],
+    isVerified: true, isFeatured: true, isNew: false, agentId: 'a2',
+    views: 5678, enquiries: 234, createdAt: '2026-02-01', status: 'active',
+    plotNumber: 'OGRA/Res/0022', estateInfo: 'Old GRA Heritage Residential Zone',
+    zoningNotes: 'Residential use. Heritage zone — architectural approval required.',
+    priceNegotiable: false,
+  },
+  {
+    id: 'l4', slug: 'rumuola-affordable-plots-300sqm-l004',
+    title: 'Layout Plot — 300 sqm, Rumuola (Multiple Available)',
+    neighborhood: 'Rumuola', address: 'New Airport Road Layout, Rumuola',
+    lga: 'Obio-Akpor', state: 'Rivers',
+    latitude: 4.8161, longitude: 7.0084,
+    sizeSqm: 300, sizeHectares: 0.03,
+    priceTotal: 22000000, pricePerSqm: 73333,
+    landUse: 'residential', titleType: 'deed_of_assignment',
+    topography: 'flat', utilities: ['Electricity', 'Borehole Access', 'Access Road (New)'],
+    access: 'New internal estate road currently under construction. Tarring completion expected Q2 2026.',
+    description: 'Affordable residential plots in a new Rumuola layout near PH Airport. 8 plots remain from an original 20-plot layout. Deed of Assignment at purchase. Ideal for first-time landowners and investors looking for capital growth in PH\'s fastest-developing suburb.',
+    features: ['Deed of Assignment', 'New Layout', 'First-Time Buyer Friendly', 'Survey Plan', 'Multiple Plots', 'Near Airport', 'Growing Area'],
+    nearbyLandmarks: ['PH International Airport (1.8km)', 'Rumuola Junction (700m)', 'Rumuola Comprehensive School (400m)'],
+    isVerified: true, isFeatured: false, isNew: true, agentId: 'a6',
+    views: 2341, enquiries: 98, createdAt: '2026-03-01', status: 'active',
+    plotNumber: 'Multiple — 8 plots available', estateInfo: 'Airport Road New Layout',
+    zoningNotes: 'Residential use. Bungalow, duplex, and blocks of flats permitted.',
+    priceNegotiable: true,
+  },
+  {
+    id: 'l5', slug: 'trans-amadi-commercial-plot-2500sqm-l005',
+    title: 'Commercial/Industrial Land — 2,500 sqm, Trans Amadi',
+    neighborhood: 'Trans Amadi', address: 'Industrial Spine Road, Trans Amadi',
+    lga: 'Port Harcourt', state: 'Rivers',
+    latitude: 4.8341, longitude: 7.0842,
+    sizeSqm: 2500, sizeHectares: 0.25,
+    priceTotal: 195000000, pricePerSqm: 78000,
+    landUse: 'industrial', titleType: 'cof_o',
+    topography: 'flat', utilities: ['3-Phase Electricity', 'Industrial Water', 'Drainage', 'Tarred Road'],
+    access: 'Dual-carriageway access from the Trans Amadi Industrial Spine Road with heavy vehicle access.',
+    description: 'Prime industrial land on Trans Amadi\'s main corridor. Flat, fully fenced, C-of-O certified land with 3-phase power and heavy vehicle access. Suitable for warehouse construction, logistics hub, manufacturing facility, or oil services yard.',
+    features: ['Certificate of Occupancy', 'Fully Fenced', '3-Phase Power Available', 'Heavy Vehicle Access', 'Industrial Zoning', 'Survey Plan', 'Drainage Installed'],
+    nearbyLandmarks: ['SPDC Office (1.2km)', 'Agip Office Complex (800m)', 'Trans Amadi Police Station (600m)'],
+    isVerified: true, isFeatured: true, isNew: false, agentId: 'a5',
+    views: 1876, enquiries: 67, createdAt: '2026-01-15', status: 'active',
+    plotNumber: 'TA/Ind/Spine/009', estateInfo: 'Trans Amadi Industrial Estate',
+    zoningNotes: 'Industrial and commercial use. Environmental Impact Assessment required for manufacturing.',
+    priceNegotiable: true,
+  },
+  {
+    id: 'l6', slug: 'eleme-nlng-zone-plot-600sqm-l006',
+    title: 'Residential Plot — 600 sqm, NLNG Corridor, Eleme',
+    neighborhood: 'Eleme', address: 'Aleto Road, NLNG Corridor, Eleme',
+    lga: 'Eleme', state: 'Rivers',
+    latitude: 4.7956, longitude: 7.1106,
+    sizeSqm: 600, sizeHectares: 0.06,
+    priceTotal: 42000000, pricePerSqm: 70000,
+    landUse: 'residential', titleType: 'deed_of_assignment',
+    topography: 'flat', utilities: ['NLNG Substation Power', 'Borehole', 'Tarred Road'],
+    access: 'Fronts onto Aleto Road with easy access to the NLNG plant and Port Harcourt Refinery.',
+    description: 'Strategic residential plot in the NLNG corridor — ideal for building a corporate let villa or family home targeting oil workers and expatriate tenants. Land values in this corridor have risen 22% in the past 24 months driven by NLNG Train 7 expansion and refinery activity.',
+    features: ['Deed of Assignment', 'Survey Plan', 'NLNG Corridor', 'Flat Terrain', 'Clear Title', 'Corporate Tenant Demand'],
+    nearbyLandmarks: ['NLNG Plant (1.5km)', 'Port Harcourt Refinery (2km)', 'Eleme General Hospital (800m)'],
+    isVerified: true, isFeatured: false, isNew: false, agentId: 'a4',
+    views: 1456, enquiries: 52, createdAt: '2026-02-10', status: 'active',
+    plotNumber: 'ELM/Res/Aleto/018', estateInfo: 'Aleto Residential Layout',
+    zoningNotes: 'Residential use. Building plan approval from Eleme LGA required.',
+    priceNegotiable: true,
+  },
+  {
+    id: 'l7', slug: 'waterfront-plot-bonny-island-l007',
+    title: 'Waterfront Plot — 1,800 sqm, Bonny Island',
+    neighborhood: 'Bonny Island', address: 'Waterfront Road, Bonny Island, Rivers State',
+    lga: 'Bonny', state: 'Rivers',
+    latitude: 4.4401, longitude: 7.1534,
+    sizeSqm: 1800, sizeHectares: 0.18,
+    priceTotal: 280000000, pricePerSqm: 155556,
+    landUse: 'mixed_use', titleType: 'governors_consent',
+    topography: 'waterfront', utilities: ['NLNG Power', 'Waterfront Access', 'Tarred Road'],
+    access: 'Direct waterfront access to the Bonny River. Road access from Waterfront Road.',
+    description: 'Exceptional waterfront plot on Bonny Island — one of Nigeria\'s most strategically significant oil & gas locations. Overlooking the Bonny River estuary. Suitable for hotel, maritime services facility, executive lodge, or premium residential development. Governor\'s Consent registered.',
+    features: ['Governor\'s Consent', 'Waterfront Access', 'River Views', 'Mixed-Use Zoning', 'Survey Plan', 'NLNG Zone', 'Premium Location'],
+    nearbyLandmarks: ['Bonny Jetty (400m)', 'NLNG LNG Terminal (2km)', 'Bonny Kingdom Palace (1.2km)'],
+    isVerified: true, isFeatured: true, isNew: true, agentId: 'a4',
+    views: 3421, enquiries: 143, createdAt: '2026-03-05', status: 'active',
+    plotNumber: 'BNY/WF/Res/004', estateInfo: 'Bonny Waterfront Zone',
+    zoningNotes: 'Mixed-use. Maritime and residential development permitted with DPR/NIMASA clearance.',
+    priceNegotiable: false,
+  },
+  {
+    id: 'l8', slug: 'gated-estate-plot-rumuola-400sqm-l008',
+    title: 'Gated Estate Plot — 400 sqm, Sunrise Estate, Rumuola',
+    neighborhood: 'Rumuola', address: 'Sunrise Estate, Elelenwo Road, Rumuola',
+    lga: 'Obio-Akpor', state: 'Rivers',
+    latitude: 4.8174, longitude: 7.0091,
+    sizeSqm: 400, sizeHectares: 0.04,
+    priceTotal: 35000000, pricePerSqm: 87500,
+    landUse: 'residential', titleType: 'deed_of_assignment',
+    topography: 'flat', utilities: ['Estate Generator', 'Borehole', 'Paved Estate Roads', 'Security Lights'],
+    access: 'Secured gated estate with 24-hr security. Internal paved roads.',
+    description: 'Final remaining plot within the fully-secured Sunrise Estate. All neighbouring plots are built up — your structure will be immediately part of a premium neighbourhood. Deed of Assignment. Estate roads paved, drainage complete, and borehole in operation.',
+    features: ['Last Plot in Estate', 'Deed of Assignment', 'Gated Estate', 'Paved Roads', 'Drainage Complete', 'Borehole Active', 'Survey Plan'],
+    nearbyLandmarks: ['PH Airport (2km)', 'Rumuola Road (300m)', 'Elelenwo Market (400m)'],
+    isVerified: true, isFeatured: false, isNew: true, agentId: 'a6',
+    views: 1987, enquiries: 89, createdAt: '2026-03-08', status: 'active',
+    plotNumber: 'SRE/Res/Plot/20', estateInfo: 'Sunrise Estate — Final Plot',
+    zoningNotes: 'Residential only. G+2 maximum. Architectural approval from estate management.',
+    priceNegotiable: false,
+  },
+  {
+    id: 'l9', slug: 'mixed-use-plot-woji-1000sqm-l009',
+    title: 'Mixed-Use Development Plot — 1,000 sqm, Woji',
+    neighborhood: 'Woji', address: 'Woji Road Frontage, Woji, Obio-Akpor',
+    lga: 'Obio-Akpor', state: 'Rivers',
+    latitude: 4.8289, longitude: 7.0198,
+    sizeSqm: 1000, sizeHectares: 0.10,
+    priceTotal: 145000000, pricePerSqm: 145000,
+    landUse: 'mixed_use', titleType: 'cof_o',
+    topography: 'corner_plot', utilities: ['PHEDC Electricity', 'PHWC Water', 'Tarred Road', 'Drainage'],
+    access: 'High-visibility corner plot directly on Woji Road — one of Obio-Akpor\'s busiest commercial corridors.',
+    description: 'Rare corner plot on Woji\'s main road with C-of-O. High vehicle and pedestrian footfall. Suitable for a mixed-use building with ground-floor retail and residential above, a hotel, or a commercial complex. Developers and investors only — priced at land value.',
+    features: ['Certificate of Occupancy', 'Corner Plot', 'Main Road Frontage', 'High Footfall', 'Mixed-Use Zoning', 'Survey Plan', 'Development Ready'],
+    nearbyLandmarks: ['Polo Road Junction (400m)', 'Green Court Estate (200m)', 'Woji Police Post (500m)'],
+    isVerified: true, isFeatured: true, isNew: false, agentId: 'a3',
+    views: 4321, enquiries: 198, createdAt: '2026-02-15', status: 'active',
+    plotNumber: 'WJI/MX/WojiRd/003', estateInfo: 'Woji Road Commercial Zone',
+    zoningNotes: 'Mixed-use. Ground floor commercial with residential above. G+5 possible.',
+    priceNegotiable: true,
+  },
+  {
+    id: 'l10', slug: 'agricultural-farmland-obio-akpor-2ha-l010',
+    title: 'Agricultural Land — 2 Hectares, Obio-Akpor Outskirts',
+    neighborhood: 'Rumuola', address: 'Rumuosi Road, Obio-Akpor Outskirts',
+    lga: 'Obio-Akpor', state: 'Rivers',
+    latitude: 4.8401, longitude: 7.0156,
+    sizeSqm: 20000, sizeHectares: 2.0,
+    priceTotal: 85000000, pricePerSqm: 4250,
+    landUse: 'agricultural', titleType: 'gazette',
+    topography: 'gentle_slope', utilities: ['Stream Access', 'Borehole Potential', 'Farm Road'],
+    access: 'Accessible via laterite farm road off Rumuosi Road. Suitable for truck access with grading.',
+    description: 'Two hectares of fertile agricultural land on the outskirts of Obio-Akpor. Currently cleared and suitable for large-scale crop farming, fish pond development, poultry, or agro-processing. Gazette title with survey. Growing demand for urban farming and agro-tourism near Port Harcourt.',
+    features: ['Gazette Title', 'Survey Plan', 'Cleared Land', 'Fertile Soil', 'Stream Nearby', 'Farm Road Access', 'Agro-Tourism Potential'],
+    nearbyLandmarks: ['Rumuosi Community (500m)', 'PH Ring Road (3km)', 'Obio-Akpor LGA Headquarters (4km)'],
+    isVerified: true, isFeatured: false, isNew: false, agentId: 'a6',
+    views: 987, enquiries: 34, createdAt: '2026-02-20', status: 'active',
+    plotNumber: 'OA/Agri/Rum/007', estateInfo: 'Rumuosi Agricultural Zone',
+    zoningNotes: 'Agricultural use. Residential development requires rezoning application.',
+    priceNegotiable: true,
+  },
+]

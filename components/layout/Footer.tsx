@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Home, Mail, Phone, MapPin, Instagram, Twitter, Linkedin, Facebook } from 'lucide-react'
+import Image from 'next/image'
+import { Mail, Phone, MapPin, Instagram, Twitter, Linkedin, Facebook } from 'lucide-react'
 
 const footerLinks = {
   'Find Property': [
@@ -29,8 +30,8 @@ const footerLinks = {
     { label: 'Contact Us', href: '/contact' },
     { label: 'Careers', href: '/careers' },
     { label: 'Press', href: '/press' },
-    { label: 'Privacy Policy', href: '/privacy-policy' },
-    { label: 'Terms of Service', href: '/terms-of-service' },
+    { label: 'Privacy Policy', href: '/legal/privacy' },
+    { label: 'Terms of Service', href: '/legal/terms' },
   ],
 }
 
@@ -43,11 +44,14 @@ export default function Footer() {
 
           {/* Brand Column */}
           <div className="lg:col-span-2">
-            <Link href="/" className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-500 to-gold-300 flex items-center justify-center">
-                <Home className="w-5 h-5 text-obsidian-900" strokeWidth={2.5} />
-              </div>
-              <span className="font-display text-3xl font-light text-white tracking-wide">NAYA</span>
+            <Link href="/" className="flex items-center mb-6">
+              <Image
+                src="/naya-logo.png"
+                alt="Naya Real Estate"
+                width={120}
+                height={60}
+                className="h-14 w-auto object-contain"
+              />
             </Link>
             <p className="text-sm text-white/40 leading-relaxed mb-6 max-w-xs">
               Nigeria&apos;s premium property marketplace. Find, verify, and secure your perfect home in Port Harcourt with Naya.

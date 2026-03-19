@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, Menu, X, ChevronDown, Bell, Heart, User, Home, LogIn } from 'lucide-react'
+import Image from 'next/image'
+import { Search, Menu, X, ChevronDown, Heart, LogIn } from 'lucide-react'
 
 const navItems = [
   { label: 'Buy', href: '/buy' },
@@ -43,13 +44,15 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16 md:h-[68px]">
 
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-3 flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-500 to-gold-300 flex items-center justify-center">
-                <Home className="w-4 h-4 text-obsidian-900" strokeWidth={2.5} />
-              </div>
-              <span className="font-display text-2xl font-light tracking-wide text-white">
-                NAYA
-              </span>
+            <Link href="/" className="flex items-center flex-shrink-0">
+              <Image
+                src="/naya-logo.png"
+                alt="Naya Real Estate"
+                width={90}
+                height={45}
+                className="h-10 w-auto object-contain"
+                priority
+              />
             </Link>
 
             {/* Desktop Nav */}

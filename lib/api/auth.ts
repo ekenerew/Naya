@@ -1,211 +1,110 @@
 // lib/api/auth.ts
-// Authentication utilities for Naya
-
 import { randomBytes, createHash, timingSafeEqual } from 'crypto'
 import { SignJWT, jwtVerify } from 'jose'
-import { cookies } from 'next/headers'
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
-// ── Constants ──────────────────────────────────────────────────
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'naya-dev-secret-change-in-production'
+  process.env.JWT_SECRET || 'naya-dev-secret-change-in-production-min-32-chars'
 )
-const SESSION_DURATION_DAYS = 30
-const RESET_TOKEN_EXPIRY_MINS = 30
-const EMAIL_TOKEN_EXPIRY_HRS = 24
-const SALT_ROUNDS = 12
+const SESSION_DAYS = 30
+const COOKIE_NAME = 'naya_session'
 
-// ── Password Hashing ──────────────────────────────────────────
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, SALT_ROUNDS)
+  return bcrypt.hash(password, 12)
 }
 
-export async function verifyPassword(
-  password: string,
-  hash: string
-): Promise<boolean> {
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash)
 }
 
-export function validatePasswordStrength(password: string): {
-  valid: boolean
-  errors: string[]
-} {
+export function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
   const errors: string[] = []
-  if (password.length < 8) errors.push('Minimum 8 characters required')
+  if (password.length < 8)     errors.push('Minimum 8 characters required')
   if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter required')
   if (!/[0-9]/.test(password)) errors.push('At least one number required')
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password))
-    errors.push('At least one special character required')
+  if (!/[!@#$%^&*()_+\-=\[\]{}|,.<>?]/.test(password)) errors.push('At least one special character required')
   return { valid: errors.length === 0, errors }
 }
 
-// ── Token Generation ──────────────────────────────────────────
-export function generateSecureToken(): string {
-  return randomBytes(32).toString('hex')
-}
+export function generateSecureToken(): string { return randomBytes(32).toString('hex') }
+export function hashToken(token: string): string { return createHash('sha256').update(token).digest('hex') }
 
-export function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex')
-}
-
-export function tokensMatch(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b))
-}
-
-// ── JWT Session Tokens ────────────────────────────────────────
 export async function createSessionToken(userId: string): Promise<string> {
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS)
-
-  return new SignJWT({ sub: userId })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(expiresAt.getTime() / 1000))
-    .sign(JWT_SECRET)
+  const exp = Math.floor(Date.now() / 1000) + SESSION_DAYS * 24 * 60 * 60
+  return new SignJWT({ sub: userId }).setProtectedHeader({ alg: 'HS256' }).setExpirationTime(exp).sign(JWT_SECRET)
 }
 
 export async function verifySessionToken(token: string): Promise<string | null> {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
     return payload.sub as string
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
-// ── Session Cookie ────────────────────────────────────────────
-export function setSessionCookie(token: string): void {
-  const cookieStore = cookies()
-  cookieStore.set('naya_session', token, {
+export function attachSessionCookie(res: NextResponse, token: string): NextResponse {
+  res.cookies.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: SESSION_DURATION_DAYS * 24 * 60 * 60,
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
   })
+  return res
 }
 
-export function clearSessionCookie(): void {
-  const cookieStore = cookies()
-  cookieStore.delete('naya_session')
+export function clearSessionCookie(res: NextResponse): NextResponse {
+  res.cookies.set(COOKIE_NAME, '', { maxAge: 0, path: '/' })
+  return res
 }
 
-export function getSessionToken(req?: NextRequest): string | null {
-  if (req) {
-    return req.cookies.get('naya_session')?.value ?? null
-  }
-  const cookieStore = cookies()
-  return cookieStore.get('naya_session')?.value ?? null
+export function getSessionTokenFromRequest(req: NextRequest): string | null {
+  return req.cookies.get(COOKIE_NAME)?.value ?? null
 }
 
-// ── Get Current User ──────────────────────────────────────────
-export async function getCurrentUser(req?: NextRequest) {
-  const token = getSessionToken(req)
+export async function getCurrentUser(req: NextRequest) {
+  const token = getSessionTokenFromRequest(req)
   if (!token) return null
-
   const userId = await verifySessionToken(token)
   if (!userId) return null
-
-  const user = await prisma.user.findUnique({
+  return prisma.user.findUnique({
     where: { id: userId, isActive: true, isBanned: false },
     include: {
       agentProfile: {
-        select: {
-          id: true, plan: true, badge: true,
-          rsspcStatus: true, agencyName: true,
-          totalListings: true, avgRating: true,
-        }
+        select: { id: true, plan: true, badge: true, rsspcStatus: true, agencyName: true, totalListings: true, activeListings: true, avgRating: true }
       }
     }
   })
-
-  return user
 }
 
-// ── Password Reset ────────────────────────────────────────────
-export async function createPasswordResetToken(
-  userId: string,
-  ipAddress?: string
-): Promise<string> {
-  // Invalidate old tokens
-  await prisma.passwordResetToken.updateMany({
-    where: { userId, usedAt: null },
-    data: { usedAt: new Date() }
-  })
-
+export async function createPasswordResetToken(userId: string, ipAddress?: string): Promise<string> {
+  await prisma.passwordResetToken.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } })
   const rawToken = generateSecureToken()
-  const expiresAt = new Date()
-  expiresAt.setMinutes(expiresAt.getMinutes() + RESET_TOKEN_EXPIRY_MINS)
-
-  await prisma.passwordResetToken.create({
-    data: {
-      userId,
-      tokenHash: hashToken(rawToken),
-      expiresAt,
-      ipAddress,
-    }
-  })
-
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000)
+  await prisma.passwordResetToken.create({ data: { userId, tokenHash: hashToken(rawToken), expiresAt, ipAddress } })
   return rawToken
 }
 
 export async function validatePasswordResetToken(rawToken: string) {
-  const tokenHash = hashToken(rawToken)
-  const record = await prisma.passwordResetToken.findUnique({
-    where: { tokenHash },
-    include: { user: true }
-  })
-
-  if (!record) return { valid: false, error: 'Invalid reset link' }
-  if (record.usedAt) return { valid: false, error: 'Reset link already used' }
+  const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(rawToken) }, include: { user: true } })
+  if (!record)        return { valid: false, error: 'Invalid reset link' }
+  if (record.usedAt)  return { valid: false, error: 'Reset link already used' }
   if (record.expiresAt < new Date()) return { valid: false, error: 'Reset link has expired' }
-
   return { valid: true, record }
 }
 
-// ── Email Verification ────────────────────────────────────────
-export async function createEmailVerificationToken(
-  userId: string,
-  email: string
-): Promise<string> {
+export async function createEmailVerificationToken(userId: string, email: string): Promise<string> {
   const rawToken = generateSecureToken()
-  const expiresAt = new Date()
-  expiresAt.setHours(expiresAt.getHours() + EMAIL_TOKEN_EXPIRY_HRS)
-
-  await prisma.emailVerificationToken.create({
-    data: {
-      userId,
-      email,
-      tokenHash: hashToken(rawToken),
-      expiresAt,
-    }
-  })
-
+  await prisma.emailVerificationToken.create({ data: { userId, email, tokenHash: hashToken(rawToken), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } })
   return rawToken
 }
 
-// ── Rate Limiting (simple in-memory — replace with Redis in prod) ──
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-
-export function checkRateLimit(
-  key: string,
-  maxAttempts: number = 5,
-  windowMs: number = 15 * 60 * 1000
-): boolean {
+export function checkRateLimit(key: string, max = 5, windowMs = 15 * 60 * 1000): boolean {
   const now = Date.now()
-  const entry = rateLimitMap.get(key)
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs })
-    return true
-  }
-
-  if (entry.count >= maxAttempts) return false
-
-  entry.count++
-  return true
+  const e = rateLimitMap.get(key)
+  if (!e || now > e.resetAt) { rateLimitMap.set(key, { count: 1, resetAt: now + windowMs }); return true }
+  if (e.count >= max) return false
+  e.count++; return true
 }

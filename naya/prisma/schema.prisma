@@ -1,0 +1,708 @@
+// ============================================================
+// NAYA REAL ESTATE TECHNOLOGIES LTD
+// Prisma Schema — PostgreSQL via Supabase
+// Version: 1.0.0 | March 2026
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────────────────────
+
+enum AccountType {
+  SEEKER
+  AGENT
+  LANDLORD
+  ADMIN
+}
+
+enum AgentBadge {
+  NONE
+  VERIFIED
+  TOP_AGENT
+  PLATINUM
+}
+
+enum AgentPlan {
+  STARTER
+  PRO
+  PREMIUM
+}
+
+enum PropertyType {
+  APARTMENT
+  DUPLEX
+  BUNGALOW
+  LAND
+  COMMERCIAL
+  SHORTLET
+  TERRACE
+  PENTHOUSE
+  MANSION
+  SINGLE_ROOM
+  TWO_ROOMS
+  ROOM_PARLOUR
+  SELF_CONTAINED
+  BEDSITTER
+  STORE
+  ONE_BEDROOM_FLAT
+  TWO_BEDROOM_FLAT
+  THREE_BEDROOM_FLAT
+  FOUR_BEDROOM_FLAT
+  THREE_ROOM_DUPLEX
+  MINI_FLAT
+  STUDIO
+}
+
+enum ListingType {
+  SALE
+  RENT
+  SHORTLET
+  LEASE
+}
+
+enum PricePeriod {
+  MONTHLY
+  YEARLY
+  TOTAL
+  PER_NIGHT
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  RENTED
+  SOLD
+  UNDER_OFFER
+  EXPIRED
+  UNPUBLISHED
+  REJECTED
+}
+
+enum EnquiryType {
+  RENT
+  BUY
+  SHORTLET
+  GENERAL
+}
+
+enum EnquiryStatus {
+  NEW
+  READ
+  RESPONDED
+  CLOSED
+  SPAM
+}
+
+enum TitleType {
+  COF_O
+  DEED_OF_ASSIGNMENT
+  GOVERNORS_CONSENT
+  SURVEY_PLAN
+  GAZETTE
+  FAMILY_LAND
+  UNKNOWN
+}
+
+enum LandUse {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  AGRICULTURAL
+  MIXED_USE
+  INSTITUTIONAL
+}
+
+enum VerificationStatus {
+  PENDING
+  SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  REGISTER
+  PASSWORD_RESET
+  EMAIL_VERIFIED
+  PHONE_VERIFIED
+  LISTING_CREATED
+  LISTING_UPDATED
+  LISTING_DELETED
+  ENQUIRY_SENT
+  PROFILE_UPDATED
+  PLAN_UPGRADED
+  ADMIN_ACTION
+}
+
+// ──────────────────────────────────────────────────────────────
+// USERS
+// ──────────────────────────────────────────────────────────────
+
+model User {
+  id               String      @id @default(cuid())
+  email            String      @unique
+  phone            String?     @unique
+  passwordHash     String      @map("password_hash")
+  accountType      AccountType @default(SEEKER) @map("account_type")
+  firstName        String      @map("first_name")
+  lastName         String      @map("last_name")
+  avatarUrl        String?     @map("avatar_url")
+
+  // Verification flags
+  emailVerified    Boolean     @default(false) @map("email_verified")
+  phoneVerified    Boolean     @default(false) @map("phone_verified")
+  isActive         Boolean     @default(true) @map("is_active")
+  isBanned         Boolean     @default(false) @map("is_banned")
+
+  // Preferences
+  marketingConsent Boolean     @default(false) @map("marketing_consent")
+  notifyEnquiries  Boolean     @default(true) @map("notify_enquiries")
+  notifyAlerts     Boolean     @default(true) @map("notify_alerts")
+
+  // Timestamps
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  lastLoginAt      DateTime?   @map("last_login_at")
+  deletedAt        DateTime?   @map("deleted_at")
+
+  // Relations
+  agentProfile     AgentProfile?
+  sessions         Session[]
+  passwordResets   PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
+  enquiriesSent    Enquiry[]   @relation("EnquiryFrom")
+  savedListings    SavedListing[]
+  reviewsGiven     Review[]    @relation("ReviewFrom")
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  propertyAlerts   PropertyAlert[]
+
+  @@map("users")
+}
+
+// ──────────────────────────────────────────────────────────────
+// AGENT PROFILES
+// ──────────────────────────────────────────────────────────────
+
+model AgentProfile {
+  id               String      @id @default(cuid())
+  userId           String      @unique @map("user_id")
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Agency details
+  agencyName       String?     @map("agency_name")
+  bio              String?     @db.Text
+  rsspcNumber      String?     @unique @map("rsspc_number")
+  cacNumber        String?     @map("cac_number")
+  specializations  String[]
+  languages        String[]    @default(["English"])
+  neighborhoods    String[]
+
+  // Plan & Badge
+  plan             AgentPlan   @default(STARTER)
+  badge            AgentBadge  @default(NONE)
+  planExpiresAt    DateTime?   @map("plan_expires_at")
+  planRenewsAt     DateTime?   @map("plan_renews_at")
+
+  // Verification
+  rsspcStatus      VerificationStatus @default(PENDING) @map("rsspc_status")
+  rsspcVerifiedAt  DateTime?   @map("rsspc_verified_at")
+  rsspcExpiresAt   DateTime?   @map("rsspc_expires_at")
+  idVerified       Boolean     @default(false) @map("id_verified")
+  cacVerified      Boolean     @default(false) @map("cac_verified")
+
+  // Performance stats (denormalised for speed)
+  totalListings    Int         @default(0) @map("total_listings")
+  activeListings   Int         @default(0) @map("active_listings")
+  totalSales       Int         @default(0) @map("total_sales")
+  totalRentals     Int         @default(0) @map("total_rentals")
+  avgRating        Float       @default(0) @map("avg_rating")
+  reviewCount      Int         @default(0) @map("review_count")
+  yearsActive      Int         @default(0) @map("years_active")
+  responseRatePct  Int         @default(100) @map("response_rate_pct")
+  avgResponseHrs   Float       @default(2) @map("avg_response_hrs")
+
+  // Social
+  whatsapp         String?
+  instagram        String?
+  linkedin         String?
+
+  // Timestamps
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  listings         Listing[]
+  enquiriesReceived Enquiry[]  @relation("EnquiryTo")
+  reviewsReceived  Review[]    @relation("ReviewFor")
+  verificationDocs VerificationDocument[]
+
+  @@map("agent_profiles")
+}
+
+// ──────────────────────────────────────────────────────────────
+// VERIFICATION DOCUMENTS
+// ──────────────────────────────────────────────────────────────
+
+model VerificationDocument {
+  id             String             @id @default(cuid())
+  agentId        String             @map("agent_id")
+  agent          AgentProfile       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  docType        String             @map("doc_type") // rsspc_licence | cac_cert | govt_id | proof_of_address
+  fileUrl        String             @map("file_url")
+  fileName       String             @map("file_name")
+  fileSize       Int                @map("file_size")
+  mimeType       String             @map("mime_type")
+  status         VerificationStatus @default(PENDING)
+  reviewedBy     String?            @map("reviewed_by")
+  reviewedAt     DateTime?          @map("reviewed_at")
+  rejectionReason String?           @map("rejection_reason") @db.Text
+  expiresAt      DateTime?          @map("expires_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  @@map("verification_documents")
+}
+
+// ──────────────────────────────────────────────────────────────
+// LISTINGS
+// ──────────────────────────────────────────────────────────────
+
+model Listing {
+  id             String        @id @default(cuid())
+  slug           String        @unique
+  agentId        String        @map("agent_id")
+  agent          AgentProfile  @relation(fields: [agentId], references: [id])
+
+  // Core details
+  title          String
+  description    String        @db.Text
+  propertyType   PropertyType  @map("property_type")
+  listingType    ListingType   @map("listing_type")
+
+  // Pricing
+  price          BigInt
+  pricePeriod    PricePeriod   @map("price_period")
+  priceNegotiable Boolean      @default(false) @map("price_negotiable")
+  serviceFee     BigInt?       @map("service_fee")
+  cautionFee     BigInt?       @map("caution_fee")
+
+  // Property specs
+  bedrooms       Int           @default(0)
+  bathrooms      Int           @default(0)
+  toilets        Int           @default(0)
+  sizeSqm        Float?        @map("size_sqm")
+  floorLevel     Int?          @map("floor_level")
+  totalFloors    Int?          @map("total_floors")
+  yearBuilt      Int?          @map("year_built")
+  parkingSpaces  Int           @default(0) @map("parking_spaces")
+  furnishingStatus String?     @map("furnishing_status") // unfurnished | partly | fully
+
+  // Location
+  address        String
+  neighborhood   String
+  lga            String
+  state          String        @default("Rivers")
+  latitude       Float?
+  longitude      Float?
+
+  // Land-specific
+  titleType      TitleType?    @map("title_type")
+  landUse        LandUse?      @map("land_use")
+  plotNumber     String?       @map("plot_number")
+  sizeHectares   Float?        @map("size_hectares")
+
+  // Features
+  amenities      String[]
+  features       String[]
+
+  // Media
+  images         ListingImage[]
+  virtualTour    Boolean       @default(false) @map("virtual_tour")
+  virtualTourUrl String?       @map("virtual_tour_url")
+  videoUrl       String?       @map("video_url")
+
+  // Status & flags
+  status         ListingStatus @default(DRAFT)
+  isVerified     Boolean       @default(false) @map("is_verified")
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  isNew          Boolean       @default(true) @map("is_new")
+  isPremium      Boolean       @default(false) @map("is_premium")
+
+  // Analytics
+  views          Int           @default(0)
+  uniqueViews    Int           @default(0) @map("unique_views")
+  enquiryCount   Int           @default(0) @map("enquiry_count")
+  savedCount     Int           @default(0) @map("saved_count")
+
+  // Dates
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  publishedAt    DateTime?     @map("published_at")
+  expiresAt      DateTime?     @map("expires_at")
+  availableFrom  DateTime?     @map("available_from")
+
+  // Moderation
+  rejectionReason String?      @map("rejection_reason") @db.Text
+  reviewedBy     String?       @map("reviewed_by")
+  reviewedAt     DateTime?     @map("reviewed_at")
+
+  // Relations
+  enquiries      Enquiry[]
+  savedBy        SavedListing[]
+  reviews        Review[]
+  analytics      ListingAnalytics[]
+
+  @@index([status, listingType, neighborhood])
+  @@index([propertyType, listingType])
+  @@index([price, listingType])
+  @@index([agentId])
+  @@index([neighborhood, status])
+  @@index([createdAt])
+  @@map("listings")
+}
+
+// ──────────────────────────────────────────────────────────────
+// LISTING IMAGES
+// ──────────────────────────────────────────────────────────────
+
+model ListingImage {
+  id          String   @id @default(cuid())
+  listingId   String   @map("listing_id")
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url         String
+  thumbnailUrl String? @map("thumbnail_url")
+  altText     String?  @map("alt_text")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  width       Int?
+  height      Int?
+  fileSize    Int?     @map("file_size")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("listing_images")
+}
+
+// ──────────────────────────────────────────────────────────────
+// LISTING ANALYTICS
+// ──────────────────────────────────────────────────────────────
+
+model ListingAnalytics {
+  id           String   @id @default(cuid())
+  listingId    String   @map("listing_id")
+  listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  views        Int      @default(0)
+  uniqueViews  Int      @default(0) @map("unique_views")
+  enquiries    Int      @default(0)
+  saves        Int      @default(0)
+  whatsappClicks Int    @default(0) @map("whatsapp_clicks")
+  phoneClicks  Int      @default(0) @map("phone_clicks")
+  source       String?  // organic | featured | search | direct
+
+  @@unique([listingId, date])
+  @@index([listingId, date])
+  @@map("listing_analytics")
+}
+
+// ──────────────────────────────────────────────────────────────
+// ENQUIRIES
+// ──────────────────────────────────────────────────────────────
+
+model Enquiry {
+  id            String        @id @default(cuid())
+  listingId     String        @map("listing_id")
+  listing       Listing       @relation(fields: [listingId], references: [id])
+  fromUserId    String?       @map("from_user_id")
+  fromUser      User?         @relation("EnquiryFrom", fields: [fromUserId], references: [id])
+  agentId       String        @map("agent_id")
+  agent         AgentProfile  @relation("EnquiryTo", fields: [agentId], references: [id])
+
+  // Guest enquiry fields (no account needed)
+  guestName     String?       @map("guest_name")
+  guestEmail    String?       @map("guest_email")
+  guestPhone    String?       @map("guest_phone")
+
+  // Enquiry details
+  message       String        @db.Text
+  enquiryType   EnquiryType   @map("enquiry_type")
+  status        EnquiryStatus @default(NEW)
+
+  // Move-in / viewing
+  moveInDate    DateTime?     @map("move_in_date")
+  viewingDate   DateTime?     @map("viewing_date")
+  budget        BigInt?
+
+  // Response tracking
+  respondedAt   DateTime?     @map("responded_at")
+  responseTime  Int?          @map("response_time") // minutes
+
+  // Metadata
+  ipAddress     String?       @map("ip_address")
+  userAgent     String?       @map("user_agent")
+  source        String?       // web | whatsapp | phone
+
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  messages      EnquiryMessage[]
+
+  @@index([agentId, status])
+  @@index([listingId])
+  @@index([fromUserId])
+  @@index([createdAt])
+  @@map("enquiries")
+}
+
+// ──────────────────────────────────────────────────────────────
+// ENQUIRY MESSAGES (thread)
+// ──────────────────────────────────────────────────────────────
+
+model EnquiryMessage {
+  id         String   @id @default(cuid())
+  enquiryId  String   @map("enquiry_id")
+  enquiry    Enquiry  @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  senderId   String   @map("sender_id")
+  senderType String   @map("sender_type") // agent | seeker
+  message    String   @db.Text
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("enquiry_messages")
+}
+
+// ──────────────────────────────────────────────────────────────
+// SAVED LISTINGS
+// ──────────────────────────────────────────────────────────────
+
+model SavedListing {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String   @map("listing_id")
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  notes     String?  @db.Text
+  savedAt   DateTime @default(now()) @map("saved_at")
+
+  @@unique([userId, listingId])
+  @@map("saved_listings")
+}
+
+// ──────────────────────────────────────────────────────────────
+// REVIEWS
+// ──────────────────────────────────────────────────────────────
+
+model Review {
+  id                  String       @id @default(cuid())
+  agentId             String       @map("agent_id")
+  agent               AgentProfile @relation("ReviewFor", fields: [agentId], references: [id])
+  reviewerId          String       @map("reviewer_id")
+  reviewer            User         @relation("ReviewFrom", fields: [reviewerId], references: [id])
+  listingId           String?      @map("listing_id")
+  listing             Listing?     @relation(fields: [listingId], references: [id])
+
+  // Ratings
+  rating              Int          // 1–5
+  communicationRating Int?         @map("communication_rating")
+  professionalismRating Int?       @map("professionalism_rating")
+  valueRating         Int?         @map("value_rating")
+
+  comment             String?      @db.Text
+  verifiedTransaction Boolean      @default(false) @map("verified_transaction")
+  isPublished         Boolean      @default(true) @map("is_published")
+  agentReply          String?      @map("agent_reply") @db.Text
+  agentRepliedAt      DateTime?    @map("agent_replied_at")
+
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  @@unique([reviewerId, listingId])
+  @@index([agentId, isPublished])
+  @@map("reviews")
+}
+
+// ──────────────────────────────────────────────────────────────
+// SESSIONS
+// ──────────────────────────────────────────────────────────────
+
+model Session {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique @map("token_hash")
+  deviceInfo  String?  @map("device_info")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  isValid     Boolean  @default(true) @map("is_valid")
+  lastUsedAt  DateTime @default(now()) @map("last_used_at")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, isValid])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ──────────────────────────────────────────────────────────────
+// PASSWORD RESET TOKENS
+// ──────────────────────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  ipAddress String?   @map("ip_address")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ──────────────────────────────────────────────────────────────
+// EMAIL VERIFICATION TOKENS
+// ──────────────────────────────────────────────────────────────
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  email     String
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+// ──────────────────────────────────────────────────────────────
+// PROPERTY ALERTS
+// ──────────────────────────────────────────────────────────────
+
+model PropertyAlert {
+  id            String      @id @default(cuid())
+  userId        String      @map("user_id")
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  listingType   ListingType @map("listing_type")
+  neighborhood  String?
+  propertyType  PropertyType? @map("property_type")
+  minPrice      BigInt?     @map("min_price")
+  maxPrice      BigInt?     @map("max_price")
+  minBedrooms   Int?        @map("min_bedrooms")
+  isActive      Boolean     @default(true) @map("is_active")
+  frequency     String      @default("daily") // instant | daily | weekly
+  lastSentAt    DateTime?   @map("last_sent_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@map("property_alerts")
+}
+
+// ──────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ──────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String    // new_enquiry | enquiry_response | listing_approved | review_received | alert_match
+  title     String
+  message   String    @db.Text
+  href      String?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ──────────────────────────────────────────────────────────────
+// AUDIT LOG
+// ──────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?     @map("user_id")
+  user      User?       @relation(fields: [userId], references: [id])
+  action    AuditAction
+  ipAddress String?     @map("ip_address")
+  userAgent String?     @map("user_agent")
+  metadata  Json?
+  success   Boolean     @default(true)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ──────────────────────────────────────────────────────────────
+// NEIGHBOURHOODS (CMS)
+// ──────────────────────────────────────────────────────────────
+
+model Neighbourhood {
+  id                  String  @id @default(cuid())
+  slug                String  @unique
+  name                String
+  lga                 String
+  description         String  @db.Text
+  character           String?
+  safetyScore         Int     @map("safety_score")
+  infrastructureScore Int     @map("infrastructure_score")
+  schoolScore         Int     @map("school_score")
+  floodRiskScore      Int     @map("flood_risk_score")
+  avgRent1br          BigInt  @map("avg_rent_1br")
+  avgRent3br          BigInt  @map("avg_rent_3br")
+  avgBuyPrice         BigInt  @map("avg_buy_price")
+  trend               String  // up | down | stable
+  trendPct            Float   @map("trend_pct")
+  emoji               String
+  highlights          String[]
+  nearbySchools       String[] @map("nearby_schools")
+  nearbyHospitals     String[] @map("nearby_hospitals")
+  nearbyLandmarks     String[] @map("nearby_landmarks")
+  propertyCount       Int     @default(0) @map("property_count")
+  isActive            Boolean @default(true) @map("is_active")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("neighbourhoods")
+}
+
+// ──────────────────────────────────────────────────────────────
+// MARKET STATS
+// ──────────────────────────────────────────────────────────────
+
+model MarketStat {
+  id           String   @id @default(cuid())
+  month        String   // "Mar '26"
+  year         Int
+  monthNum     Int      @map("month_num")
+  avgRent      BigInt   @map("avg_rent")
+  avgSalePrice BigInt   @map("avg_sale_price")
+  activeListings Int    @map("active_listings")
+  enquiries    Int
+  newListings  Int      @map("new_listings")
+  soldCount    Int      @default(0) @map("sold_count")
+  rentedCount  Int      @default(0) @map("rented_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([year, monthNum])
+  @@map("market_stats")
+}

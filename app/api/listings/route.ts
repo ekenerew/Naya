@@ -2,7 +2,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import prisma from '@/lib/prisma'
-import { requireAgent } from '@/lib/api/auth'
+import { requireAgent } from '@/lib/api/helpers'
 import {
   ok, created, badRequest, forbidden, serverError,
   validate, auditLog, getPagination, paginatedResponse,

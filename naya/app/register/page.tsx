@@ -114,9 +114,30 @@ export default function RegisterPage() {
     if (err) { setError(err); return }
     setError('')
     setLoading(true)
-    await new Promise(r => setTimeout(r, 2000))
-    setLoading(false)
-    setSuccess(true)
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName:        form.firstName,
+          lastName:         form.lastName,
+          email:            form.email,
+          phone:            form.phone || undefined,
+          password:         form.password,
+          accountType:      accountType?.toUpperCase(),
+          agencyName:       form.agencyName || undefined,
+          rsspcNumber:      form.rsspcNumber || undefined,
+          marketingConsent: form.agreeMarketing,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Registration failed. Please try again.'); return }
+      setSuccess(true)
+    } catch {
+      setError('Network error. Please check your connection.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (success) {

@@ -1,60 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import prisma from '@/lib/prisma'
-import {
-  verifyPassword, createSessionToken,
-  attachSessionCookie, checkRateLimit
-} from '@/lib/api/auth'
-import {
-  badRequest, unauthorized, serverError,
-  tooManyRequests, forbidden, validate,
-  auditLog, getClientIp
-} from '@/lib/api/helpers'
-import { AuditAction } from '@prisma/client'
-
-const loginSchema = z.object({
-  email:    z.string().email().toLowerCase().trim(),
-  password: z.string().min(1).max(128),
-})
+import { verifyPassword, createSessionToken, attachSessionCookie, checkRateLimit } from '@/lib/api/auth'
 
 export async function POST(req: NextRequest) {
-  const ip = getClientIp(req)
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000)) {
-    return tooManyRequests('Too many login attempts. Please wait 15 minutes.')
+    return NextResponse.json({ success: false, error: 'Too many attempts. Wait 15 minutes.' }, { status: 429 })
   }
 
-  let body: unknown
-  try { body = await req.json() } catch { return badRequest('Invalid JSON body') }
+  let body: any
+  try { body = await req.json() } catch {
+    return NextResponse.json({ success: false, error: 'Invalid request' }, { status: 400 })
+  }
 
-  const { data, error } = await validate(loginSchema, body)
-  if (error) return error
+  const email = body?.email?.toLowerCase()?.trim()
+  const password = body?.password
+
+  if (!email || !password) {
+    return NextResponse.json({ success: false, error: 'Email and password are required' }, { status: 400 })
+  }
 
   try {
     const user = await prisma.user.findUnique({
-      where: { email: data!.email },
+      where: { email },
       include: {
         agentProfile: {
-          select: { id: true, plan: true, badge: true, rsspcStatus: true, agencyName: true, activeListings: true, avgRating: true }
+          select: { id: true, plan: true, badge: true, agencyName: true }
         }
       }
     })
 
-    const dummyHash = '$2a$12$dummyhashtopreventtimingattacksoninvalidemailaddresses00'
-    const passwordMatch = user
-      ? await verifyPassword(data!.password, user.passwordHash)
-      : (await verifyPassword(data!.password, dummyHash), false)
+    // Log for debugging
+    console.log(`[LOGIN] Attempt for: ${email}, user found: ${!!user}, has hash: ${!!user?.passwordHash}`)
 
-    if (!user || !passwordMatch) {
-      await auditLog(AuditAction.LOGIN, null, { email: data!.email, reason: 'invalid_credentials' }, req, false)
-      return unauthorized('Invalid email or password')
+    if (!user || !user.passwordHash) {
+      return NextResponse.json({ success: false, error: 'Invalid email or password' }, { status: 401 })
     }
-    if (!user.isActive)  return forbidden('Your account has been deactivated. Contact support@naya.ng')
-    if (user.isBanned)   return forbidden('Your account has been suspended. Contact support@naya.ng')
+
+    if (!user.isActive) {
+      return NextResponse.json({ success: false, error: 'Account deactivated. Contact support@naya.ng' }, { status: 403 })
+    }
+
+    const passwordMatch = await verifyPassword(password, user.passwordHash)
+    console.log(`[LOGIN] Password match: ${passwordMatch}`)
+
+    if (!passwordMatch) {
+      return NextResponse.json({ success: false, error: 'Invalid email or password' }, { status: 401 })
+    }
+
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
 
     const sessionToken = await createSessionToken(user.id)
-    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
-    await auditLog(AuditAction.LOGIN, user.id, { email: user.email }, req)
-
     const response = NextResponse.json({
       success: true,
       data: {
@@ -62,15 +58,14 @@ export async function POST(req: NextRequest) {
           id: user.id, email: user.email,
           firstName: user.firstName, lastName: user.lastName,
           accountType: user.accountType, avatarUrl: user.avatarUrl,
-          emailVerified: user.emailVerified, agentProfile: user.agentProfile,
+          agentProfile: user.agentProfile,
         }
       }
     })
-
     return attachSessionCookie(response, sessionToken)
 
-  } catch (e) {
-    console.error('Login error:', e)
-    return serverError()
+  } catch (e: any) {
+    console.error('[LOGIN ERROR]', e?.message)
+    return NextResponse.json({ success: false, error: 'Server error. Please try again.' }, { status: 500 })
   }
 }

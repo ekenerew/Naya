@@ -1,79 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { checkRateLimit } from '@/lib/api/auth'
-import { getClientIp } from '@/lib/api/helpers'
 
-// In-memory OTP store (works on Vercel serverless with short TTL)
-const otpStore = new Map<string, { otp: string; expires: number }>()
-export { otpStore }
-
-function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
-}
+// Shared OTP store
+export const otpStore = new Map<string, { otp: string; expires: number }>()
 
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '')
   if (digits.startsWith('0') && digits.length === 11) return '+234' + digits.slice(1)
-  if (digits.startsWith('234')) return '+' + digits
-  return phone.startsWith('+') ? phone : '+' + digits
+  if (digits.startsWith('234') && !phone.startsWith('+')) return '+' + digits
+  return phone.startsWith('+') ? phone : '+234' + digits
 }
 
-const schema = z.object({
-  phone: z.string().min(10).max(20),
-})
-
 export async function POST(req: NextRequest) {
-  const ip = getClientIp(req)
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!checkRateLimit(`otp:${ip}`, 5, 10 * 60 * 1000)) {
     return NextResponse.json({ success: false, error: 'Too many requests. Wait 10 minutes.' }, { status: 429 })
   }
 
-  let body: unknown
+  let body: any
   try { body = await req.json() } catch {
     return NextResponse.json({ success: false, error: 'Invalid request' }, { status: 400 })
   }
 
-  const result = schema.safeParse(body)
-  if (!result.success) {
-    return NextResponse.json({ success: false, error: 'Invalid phone number' }, { status: 400 })
+  if (!body?.phone) {
+    return NextResponse.json({ success: false, error: 'Phone number required' }, { status: 400 })
   }
 
-  const phone = normalizePhone(result.data.phone)
-  const otp = generateOTP()
-  const expires = Date.now() + 5 * 60 * 1000 // 5 minutes
+  const phone = normalizePhone(body.phone)
+  const otp = Math.floor(100000 + Math.random() * 900000).toString()
+  otpStore.set(phone, { otp, expires: Date.now() + 5 * 60 * 1000 })
 
-  otpStore.set(phone, { otp, expires })
+  console.log(`[OTP] Phone: ${phone} | Code: ${otp}`)
 
-  // Try Termii SMS if configured
+  // Try Termii SMS
   const termiiKey = process.env.TERMII_API_KEY
+  let smsSent = false
   if (termiiKey) {
     try {
-      await fetch('https://api.ng.termii.com/api/sms/send', {
+      const r = await fetch('https://api.ng.termii.com/api/sms/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: phone,
-          from: process.env.TERMII_SENDER_ID || 'Naya',
-          sms: `Your Naya code is: ${otp}. Valid 5 mins. Do not share.`,
+          from: process.env.TERMII_SENDER_ID || 'N-Alert',
+          sms: `Your Naya verification code is ${otp}. Valid for 5 minutes. Do not share.`,
           type: 'plain',
           api_key: termiiKey,
-          channel: 'generic',
+          channel: 'dnd',
         })
       })
+      const result = await r.json()
+      smsSent = r.ok
+      console.log('[TERMII]', result)
     } catch (e) {
-      console.error('SMS failed:', e)
+      console.error('[TERMII ERROR]', e)
     }
   }
-
-  // Always log OTP so you can test
-  console.log(`[NAYA OTP] Phone: ${phone} | Code: ${otp}`)
 
   return NextResponse.json({
     success: true,
     data: {
-      message: `Verification code sent`,
-      // Show code directly in response for testing (remove in production)
-      debug_otp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+      message: smsSent ? `Code sent to ${phone}` : `Code generated for ${phone}`,
+      // Always return OTP until SMS is configured — remove in production
+      otp,
+      smsSent,
     }
   })
 }

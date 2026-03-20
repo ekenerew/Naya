@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
   const [error, setError] = useState('')
 
   const signIn = async (e: React.FormEvent) => {
@@ -54,6 +55,7 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed to send OTP.'); return }
+      if (data.data?.otp) setOtpCode(data.data.otp)
       setPhoneStep('otp')
       // Show OTP for testing when no SMS provider
       if (data.data?.debug_otp) {
@@ -296,6 +298,13 @@ export default function LoginPage() {
                       Sent to <span className="font-semibold text-obsidian-700">{phone}</span>
                     </p>
                   </div>
+                  {otpCode && (
+                    <div className="bg-gold-50 border-2 border-gold-400 rounded-2xl p-4 text-center">
+                      <p className="text-xs text-gold-600 font-semibold uppercase tracking-wider mb-1">Your verification code</p>
+                      <p className="font-mono text-4xl font-bold text-obsidian-900 tracking-[0.3em]">{otpCode}</p>
+                      <p className="text-xs text-obsidian-400 mt-1">Tap the code to copy it</p>
+                    </div>
+                  )}
                   <div>
                     <label className="input-label">6-Digit Code</label>
                     <input type="text" inputMode="numeric" maxLength={6}

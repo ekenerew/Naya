@@ -1,6 +1,5 @@
 'use client'
-export const dynamic = 'force-dynamic'
-import { useState, Suspense } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -11,28 +10,18 @@ import {
 
 type AuthMode = 'email' | 'phone'
 
-function LoginContent() {
+export default function LoginPage() {
   const router = useRouter()
-  const [urlError] = useState('')
-
-  const [mode, setMode]         = useState<AuthMode>('email')
+  const [mode, setMode]           = useState<AuthMode>('email')
   const [phoneStep, setPhoneStep] = useState<'number' | 'otp'>('number')
-
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [showPass, setShowPass] = useState(false)
-  const [remember, setRemember] = useState(false)
-
-  const [phone, setPhone]   = useState('')
-  const [otp, setOtp]       = useState('')
-
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(
-    urlError === 'google_cancelled'       ? '' :
-    urlError === 'google_not_configured'  ? 'Google sign-in is not configured yet.' :
-    urlError === 'google_failed'          ? 'Google sign-in failed. Please try again.' :
-    urlError === 'account_disabled'       ? 'Your account has been disabled. Contact support.' : ''
-  )
+  const [email, setEmail]         = useState('')
+  const [password, setPassword]   = useState('')
+  const [showPass, setShowPass]   = useState(false)
+  const [remember, setRemember]   = useState(false)
+  const [phone, setPhone]         = useState('')
+  const [otp, setOtp]             = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState('')
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,9 +51,7 @@ function LoginContent() {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!phone || phone.replace(/\D/g,'').length < 10) {
-      setError('Please enter a valid phone number.'); return
-    }
+    if (phone.replace(/\D/g, '').length < 10) { setError('Please enter a valid phone number.'); return }
     setError(''); setLoading(true)
     try {
       const res = await fetch('/api/auth/send-otp', {
@@ -127,7 +114,11 @@ function LoginContent() {
             Sign in to manage listings, track enquiries, and access the full power of Naya's property tools.
           </p>
           <div className="grid grid-cols-3 gap-4 max-w-sm">
-            {[{ v: '2,847', l: 'Active Listings' }, { v: '7,200+', l: 'Monthly Enquiries' }, { v: '156+', l: 'Verified Agents' }].map((s, i) => (
+            {[
+              { v: '2,847', l: 'Active Listings' },
+              { v: '7,200+', l: 'Monthly Enquiries' },
+              { v: '156+', l: 'Verified Agents' },
+            ].map((s, i) => (
               <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
                 <div className="font-display text-2xl font-light text-gold-400">{s.v}</div>
                 <div className="text-[10px] text-white/40 mt-1">{s.l}</div>
@@ -136,7 +127,11 @@ function LoginContent() {
           </div>
         </div>
         <div className="relative z-10 flex items-center gap-6">
-          {[{ icon: Shield, l: 'RSSPC Verified' }, { icon: CheckCircle2, l: 'Encrypted' }, { icon: Lock, l: 'NDPR Compliant' }].map((b, i) => (
+          {[
+            { icon: Shield, l: 'RSSPC Verified' },
+            { icon: CheckCircle2, l: 'Encrypted' },
+            { icon: Lock, l: 'NDPR Compliant' },
+          ].map((b, i) => (
             <div key={i} className="flex items-center gap-1.5 text-white/30 text-xs">
               <b.icon className="w-3.5 h-3.5 text-gold-500" />{b.l}
             </div>
@@ -148,6 +143,7 @@ function LoginContent() {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md">
 
+          {/* Mobile logo */}
           <div className="flex items-center justify-center gap-3 mb-8 lg:hidden">
             <Link href="/" className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gold-500 flex items-center justify-center">
@@ -165,6 +161,7 @@ function LoginContent() {
             </p>
           </div>
 
+          {/* Error */}
           {error && (
             <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl mb-5">
               <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0" />
@@ -184,7 +181,7 @@ function LoginContent() {
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                 </svg>
-                {loading ? 'Redirecting...' : 'Continue with Google'}
+                {loading ? 'Redirecting to Google...' : 'Continue with Google'}
               </button>
 
               <button onClick={() => { setMode('phone'); setError('') }}
@@ -208,10 +205,13 @@ function LoginContent() {
                       value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required />
                   </div>
                 </div>
+
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="input-label mb-0">Password</label>
-                    <Link href="/forgot-password" className="text-xs text-gold-600 hover:text-gold-500">Forgot password?</Link>
+                    <Link href="/forgot-password" className="text-xs text-gold-600 hover:text-gold-500">
+                      Forgot password?
+                    </Link>
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-obsidian-300" />
@@ -224,6 +224,7 @@ function LoginContent() {
                     </button>
                   </div>
                 </div>
+
                 <label className="flex items-center gap-2.5 cursor-pointer">
                   <button type="button" onClick={() => setRemember(!remember)}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${remember ? 'bg-gold-500 border-gold-500' : 'border-obsidian-300'}`}>
@@ -231,9 +232,12 @@ function LoginContent() {
                   </button>
                   <span className="text-sm text-obsidian-600">Remember me for 30 days</span>
                 </label>
+
                 <button type="submit" disabled={loading}
                   className="btn-primary w-full justify-center gap-2 disabled:opacity-70">
-                  {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Signing in...</> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
+                  {loading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Signing in...</>
+                    : <>Sign In <ArrowRight className="w-4 h-4" /></>}
                 </button>
               </form>
             </>
@@ -270,9 +274,11 @@ function LoginContent() {
                     </div>
                     <p className="text-xs text-obsidian-400 mt-1.5">Nigerian mobile number only. Code sent via SMS.</p>
                   </div>
-                  <button type="submit" disabled={loading || phone.replace(/\D/g,'').length < 10}
+                  <button type="submit" disabled={loading || phone.replace(/\D/g, '').length < 10}
                     className="btn-primary w-full justify-center gap-2 disabled:opacity-70">
-                    {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Sending...</> : <>Send OTP Code <ArrowRight className="w-4 h-4" /></>}
+                    {loading
+                      ? <><Loader2 className="w-4 h-4 animate-spin" />Sending code...</>
+                      : <>Send OTP Code <ArrowRight className="w-4 h-4" /></>}
                   </button>
                 </form>
               )}
@@ -293,11 +299,13 @@ function LoginContent() {
                     <input type="text" inputMode="numeric" maxLength={6}
                       className="input-field text-center text-2xl font-mono tracking-[0.5em] font-bold"
                       placeholder="000000"
-                      value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g,'').slice(0,6))}
+                      value={otp}
+                      onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       autoFocus required />
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-xs text-obsidian-400">Expires in 5 minutes</p>
-                      <button type="button" onClick={() => { setPhoneStep('number'); setOtp(''); setError('') }}
+                      <button type="button"
+                        onClick={() => { setPhoneStep('number'); setOtp(''); setError('') }}
                         className="text-xs text-gold-600 hover:text-gold-500 font-medium">
                         Resend code
                       </button>
@@ -305,10 +313,13 @@ function LoginContent() {
                   </div>
                   <button type="submit" disabled={loading || otp.length !== 6}
                     className="btn-primary w-full justify-center gap-2 disabled:opacity-70">
-                    {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Verifying...</> : <>Verify & Sign In <ArrowRight className="w-4 h-4" /></>}
+                    {loading
+                      ? <><Loader2 className="w-4 h-4 animate-spin" />Verifying...</>
+                      : <>Verify & Sign In <ArrowRight className="w-4 h-4" /></>}
                   </button>
-                  <button type="button" onClick={() => { setPhoneStep('number'); setOtp(''); setError('') }}
-                    className="w-full text-center text-sm text-obsidian-400 hover:text-obsidian-600">
+                  <button type="button"
+                    onClick={() => { setPhoneStep('number'); setOtp(''); setError('') }}
+                    className="w-full text-center text-sm text-obsidian-400 hover:text-obsidian-600 transition-colors">
                     ← Wrong number? Change it
                   </button>
                 </form>
@@ -318,25 +329,19 @@ function LoginContent() {
 
           <p className="text-center text-sm text-obsidian-400 mt-6">
             Don't have an account?{' '}
-            <Link href="/register" className="text-gold-600 hover:text-gold-500 font-medium">Create account</Link>
+            <Link href="/register" className="text-gold-600 hover:text-gold-500 font-medium">
+              Create account
+            </Link>
           </p>
           <div className="mt-6 pt-5 border-t border-surface-border text-center">
             <p className="text-[10px] text-obsidian-300 leading-relaxed">
               By signing in you agree to Naya's{' '}
-              <Link href="/terms-of-service" className="text-gold-600 hover:underline">Terms</Link> and{' '}
+              <Link href="/terms-of-service" className="text-gold-600 hover:underline">Terms</Link>{' '}and{' '}
               <Link href="/privacy-policy" className="text-gold-600 hover:underline">Privacy Policy</Link>.
             </p>
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-surface-bg flex items-center justify-center"><div className="w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full animate-spin" /></div>}>
-      <LoginContent />
-    </Suspense>
   )
 }

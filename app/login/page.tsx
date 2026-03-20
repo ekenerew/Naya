@@ -1,4 +1,5 @@
 'use client'
+export const dynamic = 'force-dynamic'
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -12,10 +13,7 @@ type AuthMode = 'email' | 'phone'
 
 function LoginContent() {
   const router = useRouter()
-  const [urlError] = useState(() => {
-    if (typeof window === 'undefined') return ''
-    return new URLSearchParams(window.location.search).get('error') || ''
-  })
+  const [urlError] = useState('')
 
   const [mode, setMode]         = useState<AuthMode>('email')
   const [phoneStep, setPhoneStep] = useState<'number' | 'otp'>('number')

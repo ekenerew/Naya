@@ -55,6 +55,10 @@ export default function LoginPage() {
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed to send OTP.'); return }
       setPhoneStep('otp')
+      // Show OTP for testing when no SMS provider
+      if (data.data?.debug_otp) {
+        setError('TEST MODE - Your code is: ' + data.data.debug_otp)
+      }
     } catch {
       setError('Network error.')
     } finally {

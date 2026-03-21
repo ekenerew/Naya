@@ -1,200 +1,260 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, Star, MapPin, Shield, MessageCircle, Phone, X, TrendingUp, ArrowRight, SlidersHorizontal, CheckCircle2 } from 'lucide-react'
-import { agents } from '@/lib/data'
-import type { Agent } from '@/lib/types'
+import {
+  Search, Star, MapPin, Shield, Award, CheckCircle2,
+  Phone, MessageCircle, Filter, X, Loader2, Users,
+  ChevronRight, ArrowRight, Plus, RefreshCw, Building2
+} from 'lucide-react'
 
-const badgeConfig: Record<string, { label: string; icon: string; color: string }> = {
-  platinum:  { label: 'Platinum',  icon: '💎', color: 'text-gold-700 bg-gold-50 border-gold-300' },
-  top_agent: { label: 'Top Agent', icon: '🏆', color: 'text-amber-700 bg-amber-50 border-amber-300' },
-  verified:  { label: 'Verified',  icon: '✓',  color: 'text-emerald-700 bg-emerald-50 border-emerald-300' },
-  none:      { label: '', icon: '', color: '' },
+type Agent = {
+  id: string; agencyName?: string; plan: string; badge: string
+  rsspcNumber?: string; rsspcStatus: string; avgRating: number
+  reviewCount: number; totalListings: number; activeListings: number
+  totalSales: number; yearsActive: number; responseRatePct: number
+  neighborhoods: string[]; specializations: string[]; whatsapp?: string
+  user: { firstName: string; lastName: string; avatarUrl?: string; email: string; phone?: string }
 }
-const areaList = ['All Areas', 'GRA Phase 2', 'Old GRA', 'Trans Amadi', 'Rumuola', 'Woji', 'Eleme', 'Bonny Island']
-const sortOptions = [{ value: 'rating', label: 'Highest Rated' }, { value: 'reviews', label: 'Most Reviewed' }, { value: 'listings', label: 'Most Listings' }, { value: 'experience', label: 'Most Experienced' }]
-const avatarGradients = ['from-gold-500 to-gold-300', 'from-emerald-500 to-teal-400', 'from-violet-500 to-purple-400', 'from-rose-500 to-pink-400', 'from-blue-500 to-cyan-400', 'from-amber-500 to-orange-400']
 
-function Stars({ r }: { r: number }) {
-  return <div className="flex gap-0.5">{Array.from({length:5}).map((_,i)=><Star key={i} className={`w-3.5 h-3.5 ${i<Math.floor(r)?'fill-gold-400 text-gold-400':'text-obsidian-200'}`}/>)}</div>
+const badgeConfig: Record<string,{ label:string; color:string; bg:string }> = {
+  PLATINUM:  { label:'Platinum',  color:'text-gold-700',    bg:'bg-gold-100 border-gold-200' },
+  TOP_AGENT: { label:'Top Agent', color:'text-blue-700',    bg:'bg-blue-100 border-blue-200' },
+  VERIFIED:  { label:'Verified',  color:'text-emerald-700', bg:'bg-emerald-100 border-emerald-200' },
+  NONE:      { label:'Agent',     color:'text-obsidian-600', bg:'bg-obsidian-100 border-obsidian-200' },
 }
 
 function AgentCard({ agent }: { agent: Agent }) {
-  const badge = badgeConfig[agent.badge]
-  const g = avatarGradients[agent.id.charCodeAt(1) % avatarGradients.length]
+  const badge = badgeConfig[agent.badge] || badgeConfig.NONE
+  const initials = `${agent.user.firstName[0]}${agent.user.lastName[0]}`.toUpperCase()
+  const whatsappUrl = agent.whatsapp ? `https://wa.me/${agent.whatsapp.replace(/\D/g,'')}` : null
+
   return (
-    <div className="card overflow-hidden hover:border-gold-300 transition-all group">
-      <div className="relative h-20 bg-gradient-to-br from-obsidian-900 to-zinc-900">
-        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-20"/>
-        {badge.label && <div className="absolute top-3 right-3"><span className={`text-[10px] px-2.5 py-1 rounded-full border font-medium ${badge.color}`}>{badge.icon} {badge.label}</span></div>}
-        {agent.isVerified && <div className="absolute top-3 left-3"><span className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"><Shield className="w-2.5 h-2.5"/>RSSPC Verified</span></div>}
-      </div>
-      <div className="px-5 pb-5">
-        <div className="flex items-end justify-between -mt-8 mb-4">
-          <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${g} flex items-center justify-center text-xl font-display font-medium text-obsidian-900 border-2 border-white shadow-lg`}>{agent.initials}</div>
-          <div className="flex gap-2 mt-2">
-            <a href={`tel:${agent.phone}`} className="w-8 h-8 rounded-xl border border-surface-border flex items-center justify-center hover:border-gold-300 transition-colors"><Phone className="w-3.5 h-3.5 text-obsidian-500"/></a>
-            <a href={`https://wa.me/${agent.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center hover:bg-emerald-600 transition-colors"><MessageCircle className="w-3.5 h-3.5 text-white"/></a>
+    <div className="card p-5 hover:shadow-lg transition-all duration-300 group">
+      <div className="flex items-start gap-4 mb-4">
+        {/* Avatar */}
+        <div className="relative flex-shrink-0">
+          {agent.user.avatarUrl
+            ? <img src={agent.user.avatarUrl} alt={agent.user.firstName} className="w-16 h-16 rounded-2xl object-cover" />
+            : <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-obsidian-900 text-xl font-bold">{initials}</div>
+          }
+          {agent.rsspcStatus === 'VERIFIED' && (
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white">
+              <CheckCircle2 className="w-3 h-3 text-white" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="font-semibold text-obsidian-900 group-hover:text-gold-600 transition-colors">
+                {agent.user.firstName} {agent.user.lastName}
+              </h3>
+              {agent.agencyName && (
+                <p className="text-xs text-obsidian-400 mt-0.5 flex items-center gap-1">
+                  <Building2 className="w-3 h-3" />{agent.agencyName}
+                </p>
+              )}
+            </div>
+            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border flex-shrink-0 ${badge.bg} ${badge.color}`}>
+              {badge.label}
+            </span>
           </div>
+
+          {/* Rating */}
+          {agent.reviewCount > 0 && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <div className="flex">
+                {[1,2,3,4,5].map(i => (
+                  <Star key={i} className={`w-3 h-3 ${i<=Math.round(agent.avgRating)?'fill-gold-500 text-gold-500':'text-obsidian-200'}`} />
+                ))}
+              </div>
+              <span className="text-xs font-semibold text-obsidian-900">{agent.avgRating.toFixed(1)}</span>
+              <span className="text-xs text-obsidian-400">({agent.reviewCount} reviews)</span>
+            </div>
+          )}
         </div>
-        <Link href={`/agents/${agent.username}`}><h3 className="font-display text-lg font-medium text-obsidian-900 group-hover:text-gold-600 transition-colors leading-tight">{agent.name}</h3></Link>
-        <p className="text-xs text-obsidian-400 mb-3">{agent.agencyName}</p>
-        <div className="flex items-center gap-2 mb-4"><Stars r={agent.rating}/><span className="font-mono text-sm font-bold text-obsidian-900">{agent.rating}</span><span className="text-xs text-obsidian-400">({agent.reviewCount})</span></div>
-        <div className="grid grid-cols-3 gap-2 py-3 border-y border-surface-border mb-4 text-center">
-          <div><div className="font-mono text-base font-bold text-gold-600">{agent.totalListings}</div><div className="text-[10px] text-obsidian-400">Listings</div></div>
-          <div><div className="font-mono text-base font-bold text-obsidian-900">{agent.totalSales}</div><div className="text-[10px] text-obsidian-400">Sold</div></div>
-          <div><div className="font-mono text-base font-bold text-obsidian-900">{agent.yearsActive}yr</div><div className="text-[10px] text-obsidian-400">Active</div></div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3 py-3 border-y border-surface-border mb-4">
+        {[
+          { label:'Listings', value: agent.activeListings || agent.totalListings },
+          { label:'Sales',    value: agent.totalSales },
+          { label:'Years',    value: agent.yearsActive || '—' },
+        ].map((s,i) => (
+          <div key={i} className="text-center">
+            <p className="font-display text-lg font-medium text-obsidian-900">{s.value}</p>
+            <p className="text-[10px] text-obsidian-400 uppercase tracking-wider">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Areas */}
+      {agent.neighborhoods?.length > 0 && (
+        <div className="flex items-center gap-1 mb-3 flex-wrap">
+          <MapPin className="w-3 h-3 text-obsidian-400 flex-shrink-0" />
+          {agent.neighborhoods.slice(0,3).map((n,i) => (
+            <span key={i} className="text-xs text-obsidian-500">{n}{i < Math.min(2, agent.neighborhoods.length-1) ? ',' : ''}</span>
+          ))}
+          {agent.neighborhoods.length > 3 && <span className="text-xs text-obsidian-400">+{agent.neighborhoods.length-3} more</span>}
         </div>
-        <div className="flex items-start gap-1.5 mb-3">
-          <MapPin className="w-3 h-3 text-gold-500 flex-shrink-0 mt-0.5"/>
-          <div className="flex flex-wrap gap-1">{agent.neighborhoods.slice(0,3).map(n=><span key={n} className="text-[10px] px-2 py-0.5 rounded-full bg-surface-subtle text-obsidian-500 border border-surface-border">{n}</span>)}</div>
+      )}
+
+      {/* RSSPC */}
+      {agent.rsspcStatus === 'VERIFIED' && agent.rsspcNumber && (
+        <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl mb-4">
+          <Shield className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+          <span className="text-xs text-emerald-700 font-medium">RSSPC {agent.rsspcNumber}</span>
         </div>
-        <div className="flex flex-wrap gap-1 mb-4">{agent.specializations.slice(0,3).map(s=><span key={s} className="text-[10px] px-2 py-0.5 rounded-full bg-obsidian-900/5 text-obsidian-600 border border-obsidian-900/10">{s}</span>)}</div>
-        <Link href={`/agents/${agent.username}`} className="btn-primary w-full justify-center btn-sm">View Profile <ArrowRight className="w-3.5 h-3.5"/></Link>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Link href={`/agents/${agent.id}`} className="flex-1 btn-secondary justify-center btn-sm gap-1">
+          View Profile <ChevronRight className="w-3.5 h-3.5" />
+        </Link>
+        {whatsappUrl ? (
+          <a href={whatsappUrl} target="_blank"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl text-xs font-semibold transition-colors">
+            <MessageCircle className="w-3.5 h-3.5" />WhatsApp
+          </a>
+        ) : agent.user.phone ? (
+          <a href={`tel:${agent.user.phone}`}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 bg-obsidian-900 hover:bg-obsidian-800 text-white rounded-xl text-xs font-semibold transition-colors">
+            <Phone className="w-3.5 h-3.5" />Call
+          </a>
+        ) : null}
       </div>
     </div>
   )
 }
 
 export default function AgentsPage() {
-  const [q, setQ] = useState('')
-  const [area, setArea] = useState('All Areas')
-  const [badge, setBadge] = useState('All')
-  const [sortBy, setSortBy] = useState('rating')
-  const [verifiedOnly, setVerifiedOnly] = useState(false)
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [total, setTotal] = useState(0)
+  const [search, setSearch] = useState('')
+  const [badge, setBadge] = useState('')
+  const [sort, setSort] = useState('rating')
 
-  const filtered = useMemo(() => {
-    let r = agents.filter(a => {
-      if (q && !a.name.toLowerCase().includes(q.toLowerCase()) && !a.agencyName.toLowerCase().includes(q.toLowerCase())) return false
-      if (area !== 'All Areas' && !a.neighborhoods.includes(area)) return false
-      if (badge === 'Platinum' && a.badge !== 'platinum') return false
-      if (badge === 'Top Agent' && a.badge !== 'top_agent') return false
-      if (badge === 'Verified' && !a.isVerified) return false
-      if (verifiedOnly && !a.isVerified) return false
-      return true
-    })
-    if (sortBy === 'reviews') r = [...r].sort((a,b) => b.reviewCount - a.reviewCount)
-    else if (sortBy === 'listings') r = [...r].sort((a,b) => b.totalListings - a.totalListings)
-    else if (sortBy === 'experience') r = [...r].sort((a,b) => b.yearsActive - a.yearsActive)
-    else r = [...r].sort((a,b) => b.rating - a.rating)
-    return r
-  }, [q, area, badge, sortBy, verifiedOnly])
+  const fetchAgents = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ sort, limit: '24' })
+      if (search) params.set('q', search)
+      if (badge) params.set('badge', badge)
+      const res = await fetch(`/api/agents?${params}`)
+      const json = await res.json()
+      setAgents(json.data?.data || [])
+      setTotal(json.data?.pagination?.total || 0)
+    } catch { setAgents([]) }
+    finally { setLoading(false) }
+  }, [search, badge, sort])
 
-  const clearAll = () => { setQ(''); setArea('All Areas'); setBadge('All'); setVerifiedOnly(false) }
-  const activeFilters = [q, area !== 'All Areas', badge !== 'All', verifiedOnly].filter(Boolean).length
+  useEffect(() => { fetchAgents() }, [fetchAgents])
 
   return (
     <div className="min-h-screen bg-surface-bg">
-      <section className="relative bg-obsidian-900 overflow-hidden py-20">
-        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-40"/>
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-gold-500/8 blur-[120px]"/>
-        <div className="page-container relative z-10">
-          <div className="max-w-4xl mx-auto text-center mb-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold-500/10 border border-gold-500/25 mb-6">
-              <Shield className="w-3.5 h-3.5 text-gold-400"/>
-              <span className="font-mono text-xs text-gold-400 tracking-widest uppercase">{agents.length} RSSPC-Verified Agents · Port Harcourt</span>
-            </div>
-            <h1 className="font-display text-5xl md:text-6xl font-light text-white leading-tight mb-5">Find a Trusted<br/><span className="gold-text">Property Agent</span></h1>
-            <p className="text-white/40 text-lg font-light max-w-xl mx-auto mb-8">Every agent on Naya is RSSPC-certified, identity-verified, and reviewed by real clients.</p>
-            <div className="card p-2 flex gap-2 max-w-2xl mx-auto shadow-gold-lg">
-              <div className="flex-1 flex items-center gap-3 px-4">
-                <Search className="w-5 h-5 text-obsidian-300 flex-shrink-0"/>
-                <input className="flex-1 bg-transparent text-obsidian-900 placeholder-obsidian-300 outline-none text-sm" placeholder="Search by name or agency..." value={q} onChange={e => setQ(e.target.value)}/>
-                {q && <button onClick={() => setQ('')}><X className="w-4 h-4 text-obsidian-300"/></button>}
-              </div>
-              <select className="hidden md:block bg-surface-subtle border border-surface-border rounded-xl px-4 py-2 text-sm text-obsidian-600 outline-none" value={area} onChange={e => setArea(e.target.value)}>
-                {areaList.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <button className="btn-primary px-5 flex-shrink-0">Search</button>
-            </div>
+      {/* Hero */}
+      <section className="bg-obsidian-900 py-16 relative overflow-hidden">
+        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-30" />
+        <div className="page-container relative z-10 text-center">
+          <span className="section-number">Find Your Agent</span>
+          <h1 className="font-display text-4xl md:text-5xl font-light text-white mb-4">
+            RSSPC-Verified Agents<br /><span className="gold-text">You Can Trust</span>
+          </h1>
+          <p className="text-white/50 max-w-xl mx-auto">
+            Every agent on Naya is verified against the official Rivers State Real Estate Practitioners Council register.
+          </p>
+        </div>
+      </section>
+
+      <div className="page-container py-8">
+        {/* Search & filter bar */}
+        <div className="flex flex-col md:flex-row gap-3 mb-8">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-obsidian-300" />
+            <input className="input-field pl-10 text-sm" placeholder="Search agents or agencies..."
+              value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
-            {[
-              { value: agents.length.toString(), label: 'Active Agents' },
-              { value: `${agents.reduce((s,a) => s+a.totalListings, 0)}+`, label: 'Total Listings' },
-              { value: `${agents.reduce((s,a) => s+a.totalSales, 0)}+`, label: 'Properties Sold' },
-              { value: `${(agents.reduce((s,a) => s+a.rating, 0)/agents.length).toFixed(1)}★`, label: 'Avg Rating' },
-            ].map((s,i) => (
-              <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-                <div className="font-display text-2xl font-light text-gold-400">{s.value}</div>
-                <div className="text-xs text-white/40 mt-1">{s.label}</div>
+          <select className="input-field text-sm md:w-40" value={badge} onChange={e => setBadge(e.target.value)}>
+            <option value="">All Badges</option>
+            <option value="PLATINUM">Platinum</option>
+            <option value="TOP_AGENT">Top Agent</option>
+            <option value="VERIFIED">Verified</option>
+          </select>
+          <select className="input-field text-sm md:w-44" value={sort} onChange={e => setSort(e.target.value)}>
+            <option value="rating">Highest Rated</option>
+            <option value="listings">Most Listings</option>
+            <option value="sales">Most Sales</option>
+            <option value="experience">Most Experienced</option>
+          </select>
+          <button onClick={fetchAgents} className="btn-secondary gap-2 flex-shrink-0">
+            <RefreshCw className="w-4 h-4" />Refresh
+          </button>
+        </div>
+
+        {/* Results count */}
+        {!loading && (
+          <p className="text-obsidian-500 text-sm mb-6">
+            {total > 0 ? `${total} verified agent${total>1?'s':''} in Port Harcourt` : 'No agents found'}
+          </p>
+        )}
+
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {Array.from({length:6}).map((_,i) => (
+              <div key={i} className="card p-5 animate-pulse">
+                <div className="flex gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-surface-subtle" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-surface-subtle rounded w-3/4" />
+                    <div className="h-3 bg-surface-subtle rounded w-1/2" />
+                  </div>
+                </div>
+                <div className="h-16 bg-surface-subtle rounded-xl mb-4" />
+                <div className="h-9 bg-surface-subtle rounded-xl" />
               </div>
             ))}
           </div>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0"><svg viewBox="0 0 1440 50" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 50L1440 50L1440 15C1200 50 960 0 720 15C480 30 240 0 0 15L0 50Z" fill="#FAFAF8"/></svg></div>
-      </section>
-
-      <section className="section-padding">
-        <div className="page-container">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <div className="lg:col-span-1">
-              <div className="sticky top-24 space-y-5">
-                <div className="card p-5">
-                  <div className="flex items-center justify-between mb-5">
-                    <h3 className="font-display text-lg font-medium text-obsidian-900 flex items-center gap-2"><SlidersHorizontal className="w-4 h-4 text-gold-500"/>Filters</h3>
-                    {activeFilters > 0 && <button onClick={clearAll} className="text-xs text-gold-600 font-medium">Clear ({activeFilters})</button>}
-                  </div>
-                  <div className="space-y-5">
-                    <div>
-                      <label className="input-label">Area</label>
-                      <select className="input-field text-sm" value={area} onChange={e => setArea(e.target.value)}>{areaList.map(a => <option key={a} value={a}>{a}</option>)}</select>
-                    </div>
-                    <div>
-                      <label className="input-label">Badge Level</label>
-                      <div className="space-y-1.5">
-                        {[{v:'All',l:'All Agents'},{v:'Platinum',l:'💎 Platinum'},{v:'Top Agent',l:'🏆 Top Agent'},{v:'Verified',l:'✓ Verified'}].map(b => (
-                          <button key={b.v} onClick={() => setBadge(b.v)} className={`w-full text-left px-3 py-2 rounded-xl text-xs border transition-all ${badge === b.v ? 'bg-gold-500 text-obsidian-900 border-gold-500' : 'bg-surface-subtle text-obsidian-600 border-surface-border hover:border-gold-300'}`}>{b.l}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-3 border-t border-surface-border">
-                      <span className="text-sm text-obsidian-600">RSSPC Only</span>
-                      <div onClick={() => setVerifiedOnly(!verifiedOnly)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${verifiedOnly ? 'bg-gold-500' : 'bg-obsidian-200'}`}>
-                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${verifiedOnly ? 'translate-x-5' : 'translate-x-1'}`}/>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="card p-5 bg-obsidian-900 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-grid-gold bg-grid opacity-30"/>
-                  <div className="relative z-10 text-center">
-                    <div className="text-3xl mb-3">🏠</div>
-                    <h3 className="font-display text-base font-medium text-white mb-2">Are You an Agent?</h3>
-                    <p className="text-white/40 text-xs mb-4">Join Naya and connect with thousands of property seekers.</p>
-                    <Link href="/portal" className="btn-primary btn-sm w-full justify-center">Join as Agent</Link>
-                  </div>
-                </div>
-              </div>
+        ) : agents.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="w-20 h-20 rounded-3xl bg-surface-subtle flex items-center justify-center mx-auto mb-6">
+              <Users className="w-10 h-10 text-obsidian-300" />
             </div>
-            <div className="lg:col-span-3">
-              <div className="flex items-center justify-between gap-3 mb-6">
-                <div>
-                  <h2 className="font-display text-2xl font-medium text-obsidian-900">{filtered.length} Agents Available</h2>
-                  <p className="text-sm text-obsidian-400 mt-0.5">{area !== 'All Areas' ? area : 'All areas'} · Port Harcourt</p>
-                </div>
-                <select className="input-field text-sm py-2 max-w-44" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                  {sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-              {filtered.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">{filtered.map(a => <AgentCard key={a.id} agent={a}/>)}</div>
-              ) : (
-                <div className="text-center py-20 card"><div className="text-5xl mb-4">🔍</div><h3 className="font-display text-2xl font-medium text-obsidian-900 mb-3">No agents found</h3><button onClick={clearAll} className="btn-primary">Clear Filters</button></div>
-              )}
+            <h3 className="font-display text-2xl font-medium text-obsidian-900 mb-3">No agents yet</h3>
+            <p className="text-obsidian-400 text-sm mb-6 max-w-sm mx-auto">
+              Be the first verified agent on Naya in Port Harcourt.
+            </p>
+            <Link href="/register" className="btn-primary gap-2 inline-flex">
+              <Plus className="w-4 h-4" />Join as an Agent
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {agents.map(agent => <AgentCard key={agent.id} agent={agent} />)}
+          </div>
+        )}
+
+        {/* Join CTA */}
+        <div className="mt-16 bg-obsidian-900 rounded-3xl p-8 text-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-grid-gold bg-grid opacity-20" />
+          <div className="relative z-10">
+            <Award className="w-12 h-12 text-gold-500 mx-auto mb-4" />
+            <h2 className="font-display text-2xl font-light text-white mb-3">Are you an RSSPC agent?</h2>
+            <p className="text-white/50 text-sm mb-6 max-w-md mx-auto">
+              Join Naya, get verified, and start reaching thousands of buyers and renters in Port Harcourt every month.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Link href="/register" className="btn-primary gap-2">Join as Agent <ArrowRight className="w-4 h-4" /></Link>
+              <Link href="/portal/profile" className="btn-ghost text-white/70 border-white/20 gap-2">
+                <Shield className="w-4 h-4" />Get Verified
+              </Link>
             </div>
           </div>
         </div>
-      </section>
-
-      <section className="py-16 bg-obsidian-900 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-40"/>
-        <div className="page-container relative z-10 text-center">
-          <h2 className="font-display text-3xl text-white font-light mb-4">Can't Find the Right Agent?</h2>
-          <p className="text-white/40 mb-6 max-w-md mx-auto text-sm">Tell us what you need and we'll match you with the best agent for your requirements.</p>
-          <Link href="/contact" className="btn-primary btn-lg">Get Agent Matched <ArrowRight className="w-5 h-5"/></Link>
-        </div>
-      </section>
+      </div>
     </div>
   )
 }

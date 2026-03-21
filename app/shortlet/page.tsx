@@ -695,3 +695,38 @@ export default function ShortletPage() {
     </div>
   )
 }
+</span>
+            <h2 className="section-title">The Smarter Way to Book</h2>
+            <p className="section-desc mx-auto mt-4">Verified properties, transparent pricing, instant booking enquiries.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { icon:'🛡', title:'RSSPC Verified Hosts', desc:'Every agent and landlord is verified against the official RSSPC register. Your safety is our priority.' },
+              { icon:'💬', title:'Direct WhatsApp Contact', desc:'No middlemen. Contact hosts directly via WhatsApp for instant responses and custom arrangements.' },
+              { icon:'🔐', title:'Secure & Transparent', desc:'Clear pricing with no hidden fees. Full property details, real photos, and honest agent reviews.' },
+            ].map((f,i) => (
+              <div key={i} className="card p-6 text-center hover:shadow-lg transition-shadow">
+                <div className="text-5xl mb-4">{f.icon}</div>
+                <h3 className="font-semibold text-obsidian-900 mb-2">{f.title}</h3>
+                <p className="text-sm text-obsidian-500">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── LIST YOUR PROPERTY CTA ── */}
+        <section className="mt-16">
+          <div className="bg-gradient-to-r from-obsidian-900 to-obsidian-800 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <h3 className="font-display text-2xl font-light text-white mb-2">Have a property to list?</h3>
+              <p className="text-white/50 text-sm">Join hundreds of hosts earning from their properties on Naya.</p>
+            </div>
+            <Link href="/portal/list" className="btn-primary gap-2 whitespace-nowrap flex-shrink-0">
+              <Plus className="w-4 h-4" />List Your Shortlet
+            </Link>
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}

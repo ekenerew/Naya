@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/api/auth'
 
+
+// Serialize BigInt for JSON
+function serialize(obj: any): any {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj === 'bigint') return Number(obj)
+  if (Array.isArray(obj)) return obj.map(serialize)
+  if (typeof obj === 'object') {
+    const out: any = {}
+    for (const k of Object.keys(obj)) out[k] = serialize(obj[k])
+    return out
+  }
+  return obj
+}
+
 // ── GET /api/listings ─────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
@@ -51,10 +65,7 @@ export async function GET(req: NextRequest) {
       prisma.listing.count({ where })
     ])
 
-    return NextResponse.json({
-      success: true,
-      data: { listings, total, page, pages: Math.ceil(total / limit) }
-    })
+    return NextResponse.json(serialize({ success: true, data: { listings, total, page, pages: Math.ceil(total / limit) } }))
   } catch (e: any) {
     console.error('[GET listings]', e?.message)
     return NextResponse.json({ success: false, error: 'Failed to fetch listings' }, { status: 500 })
@@ -155,10 +166,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[LISTING CREATED] ${listing.id} by agent ${agent.id}, photos: ${imageUrls.length}`)
 
-    return NextResponse.json({
-      success: true,
-      data: { listingId: listing.id, slug: listing.slug, message: 'Listing submitted for review. Goes live within 24 hours.' }
-    }, { status: 201 })
+    return NextResponse.json(serialize({ success: true, data: { listingId: listing.id, slug: listing.slug, message: 'Listing submitted for review. Goes live within 24 hours.' } }), { status: 201 })
 
   } catch (e: any) {
     console.error('[CREATE LISTING ERROR]', e?.message, e?.code)

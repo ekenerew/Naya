@@ -188,7 +188,6 @@ export default function MarketTrendsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
           system: MARKET_CONTEXT,
           messages: [
@@ -198,7 +197,7 @@ export default function MarketTrendsPage() {
         })
       })
       const data = await response.json()
-      const reply = data.content || 'I could not generate a response. Please try again.'
+      const reply = data.content || data.error || 'I could not generate a response. Please try again.'
       setMessages(prev => [...prev, { role: 'assistant', content: reply, timestamp: new Date() }])
     } catch {
       setMessages(prev => [...prev, {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { hashPassword, createSessionToken, attachSessionCookie, checkRateLimit } from '@/lib/api/auth'
+import { notifyWelcome } from '@/lib/notifications'
 import bcrypt from 'bcryptjs'
 
 export async function POST(req: NextRequest) {
@@ -65,6 +66,11 @@ export async function POST(req: NextRequest) {
     })
 
     console.log(`[REGISTER] User created: ${user.id}`)
+    // Send welcome email + SMS
+    notifyWelcome({
+      email: user.email, phone: user.phone || undefined,
+      firstName: user.firstName, accountType: data.accountType,
+    }).catch(() => {})
 
     const sessionToken = await createSessionToken(user.id)
     const response = NextResponse.json({

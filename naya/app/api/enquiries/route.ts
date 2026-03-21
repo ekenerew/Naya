@@ -1,4 +1,5 @@
 // app/api/enquiries/route.ts
+import { notifyNewEnquiry } from '@/lib/notifications'
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import prisma from '@/lib/prisma'
@@ -111,6 +112,18 @@ export async function POST(req: NextRequest) {
 
       return newEnquiry
     })
+
+    // Fire all notifications (email + SMS + push) 
+    notifyNewEnquiry({
+      agentUserId:  listing.agent.userId,
+      agentEmail:   listing.agent.user.email,
+      agentPhone:   listing.agent.user.phone || undefined,
+      agentName:    `${listing.agent.user.firstName} ${listing.agent.user.lastName}`,
+      enquirerName: user ? `${user.firstName} ${user.lastName}` : data!.guestName || 'A visitor',
+      enquirerPhone:user?.phone || data!.guestPhone || undefined,
+      propertyTitle:listing.title,
+      message:      data!.message,
+    }).catch(e => console.error('[NOTIFY]', e))
 
     // TODO: Send WhatsApp/email notification to agent
     // await sendEnquiryNotification(listing.agent, enquiry, listing)

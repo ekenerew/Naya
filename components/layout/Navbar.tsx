@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import NotificationBell from '@/components/notifications/NotificationBell'
 import {
   Search, Menu, X, ChevronDown, Heart, LogIn,
   LogOut, User, LayoutDashboard, Plus, Bell, Settings
@@ -153,7 +154,8 @@ export default function Navbar() {
                         <Heart className="w-4 h-4" />
                       </Link>
 
-                      {/* List property button for agents */}
+                      <NotificationBell />
+              {/* List property button for agents */}
                       {isAgent && (
                         <Link href="/portal/list"
                           className="hidden md:flex btn-primary btn-sm whitespace-nowrap gap-1">

@@ -1,241 +1,427 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Shield, CheckCircle2, Upload, AlertCircle, Clock,
-  ArrowRight, FileText, Camera, Phone, Star, Award,
-  ChevronRight, Loader2, Eye, EyeOff, Lock
+  FileText, Award, ChevronRight, Loader2, Eye, EyeOff,
+  Building2, Phone, User, Star, ArrowRight, X,
+  RefreshCw, Lock, Info, Camera, File
 } from 'lucide-react'
 
-const steps = [
-  { id: 1, title: 'Personal Identity',       desc: 'Government-issued ID verification',          icon: FileText, done: true  },
-  { id: 2, title: 'RSSPC Licence Number',     desc: 'Rivers State Real Estate Practitioners Council', icon: Award, done: true  },
-  { id: 3, title: 'CAC Registration',         desc: 'Business registration certificate',          icon: Shield,   done: false },
-  { id: 4, title: 'Proof of Address',         desc: 'Utility bill or bank statement',             icon: FileText, done: false },
-  { id: 5, title: 'Professional References',  desc: 'Two client references',                      icon: Star,     done: false },
+type VerifData = {
+  agentId: string
+  agencyName?: string
+  rsspcNumber?: string
+  rsspcStatus: string
+  rsspcVerifiedAt?: string
+  rsspcExpiresAt?: string
+  idVerified: boolean
+  cacVerified: boolean
+  plan: string
+  badge: string
+  docs: Array<{ id:string; docType:string; fileName:string; status:string; createdAt:string }>
+}
+
+const docTypes = [
+  { key:'rsspc_licence',    label:'RSSPC Licence',          desc:'Your current RSSPC licence certificate',      icon:Award,    required:true  },
+  { key:'govt_id',          label:'Government-Issued ID',   desc:'NIN slip, passport, or driver\'s licence',   icon:User,     required:true  },
+  { key:'cac_cert',         label:'CAC Registration',        desc:'Business registration certificate (optional)',icon:Building2,required:false },
+  { key:'proof_of_address', label:'Proof of Address',        desc:'Utility bill or bank statement (3 months)',  icon:FileText, required:false },
 ]
 
-const benefits = [
-  'RSSPC verification badge on all listings and your profile',
-  'Priority placement in search results',
-  'Access to Pro and Premium listing plans',
-  'Trusted Agent seal on WhatsApp communication',
-  'Eligibility for Top Agent and Platinum programme',
-  'Downloadable Certificate of Verification from Naya',
-]
+const statusConfig: Record<string,{ label:string; color:string; bg:string; icon:any; desc:string }> = {
+  PENDING:      { label:'Not Started',   color:'text-obsidian-500', bg:'bg-obsidian-50',  icon:Clock,        desc:'Submit your RSSPC details to begin verification.' },
+  SUBMITTED:    { label:'Submitted',     color:'text-blue-600',     bg:'bg-blue-50',      icon:Clock,        desc:'Your details have been received. Upload your documents to continue.' },
+  UNDER_REVIEW: { label:'Under Review',  color:'text-amber-600',    bg:'bg-amber-50',     icon:Clock,        desc:'Our team is reviewing your documents. This takes 24–48 hours.' },
+  VERIFIED:     { label:'Verified ✓',    color:'text-emerald-600',  bg:'bg-emerald-50',   icon:CheckCircle2, desc:'You are a verified Naya agent. Your badge is now active.' },
+  REJECTED:     { label:'Rejected',      color:'text-rose-600',     bg:'bg-rose-50',      icon:AlertCircle,  desc:'Your verification was rejected. Please resubmit with correct documents.' },
+  EXPIRED:      { label:'Expired',       color:'text-orange-600',   bg:'bg-orange-50',    icon:AlertCircle,  desc:'Your verification has expired. Please renew your RSSPC licence.' },
+}
 
-const faq = [
-  { q: 'What is the RSSPC?', a: 'The Rivers State Real Estate Practitioners Council (RSSPC) is the official regulatory body for estate agents operating in Rivers State. All legitimate agents in Port Harcourt are required to be registered with the RSSPC.' },
-  { q: 'How long does verification take?', a: 'Identity and RSSPC verification typically takes 24–48 hours during business days. Full verification (all 5 steps) takes 3–5 business days depending on document quality.' },
-  { q: 'What if my RSSPC licence has expired?', a: 'You can still start the process, but you will need to renew your RSSPC licence before full verification can be completed. We recommend renewing with the RSSPC first.' },
-  { q: 'Is my personal information secure?', a: 'All documents are encrypted using AES-256 and stored in accordance with Nigeria\'s Data Protection Act 2023. Documents are only accessed by our verification team and are never shared with third parties.' },
-]
+export default function ProfilePage() {
+  const router = useRouter()
+  const [data, setData]           = useState<VerifData | null>(null)
+  const [loading, setLoading]     = useState(true)
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
+  const [success, setSuccess]     = useState('')
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [activeDocType, setActiveDocType] = useState<string | null>(null)
 
-export default function VerificationPage() {
-  const [rsspcNumber, setRsspcNumber] = useState('')
-  const [showNumber, setShowNumber] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploaded, setUploaded] = useState(false)
-  const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [form, setForm] = useState({
+    rsspcNumber: '', agencyName: '', cacNumber: '',
+    whatsapp: '', bio: '', yearsActive: '',
+  })
+  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }))
 
-  const completedSteps = steps.filter(s => s.done).length
-  const progress = Math.round((completedSteps / steps.length) * 100)
-
-  const handleUpload = () => {
-    setUploading(true)
-    setTimeout(() => { setUploading(false); setUploaded(true) }, 2000)
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/portal/verification')
+      if (res.status === 401) { router.push('/login'); return }
+      const json = await res.json()
+      if (json.success) {
+        setData(json.data)
+        setForm({
+          rsspcNumber: json.data.rsspcNumber || '',
+          agencyName:  json.data.agencyName  || '',
+          cacNumber:   '',
+          whatsapp:    '',
+          bio:         '',
+          yearsActive: '',
+        })
+      }
+    } catch { setError('Failed to load verification data') }
+    finally { setLoading(false) }
   }
+
+  useEffect(() => { fetchData() }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.rsspcNumber.trim()) { setError('RSSPC number is required'); return }
+    setSaving(true); setError(''); setSuccess('')
+    try {
+      const res = await fetch('/api/portal/verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'Submission failed'); return }
+      setSuccess(json.data?.message || 'Details saved!')
+      fetchData()
+    } catch { setError('Network error') }
+    finally { setSaving(false) }
+  }
+
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!activeDocType || !e.target.files?.[0]) return
+    const file = e.target.files[0]
+    setUploadingDoc(activeDocType)
+    setError(''); setSuccess('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('docType', activeDocType)
+      const res = await fetch('/api/portal/verification/upload', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'Upload failed'); return }
+      setSuccess(`${json.data?.label} uploaded successfully!`)
+      fetchData()
+    } catch { setError('Upload failed. Please try again.') }
+    finally {
+      setUploadingDoc(null)
+      setActiveDocType(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const triggerUpload = (docType: string) => {
+    setActiveDocType(docType)
+    setTimeout(() => fileInputRef.current?.click(), 100)
+  }
+
+  if (loading) return (
+    <div className="min-h-screen bg-surface-bg flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-gold-500" />
+    </div>
+  )
+
+  const status = data?.rsspcStatus || 'PENDING'
+  const cfg = statusConfig[status] || statusConfig.PENDING
+  const isVerified = status === 'VERIFIED'
+  const canEdit = !['VERIFIED','UNDER_REVIEW'].includes(status)
+
+  const uploadedDocs = data?.docs || []
+  const getDoc = (type: string) => uploadedDocs.find(d => d.docType === type)
+  const requiredDocsDone = docTypes.filter(d => d.required).every(d => !!getDoc(d.key))
 
   return (
     <div className="min-h-screen bg-surface-bg">
 
-      {/* HERO */}
-      <section className="relative bg-obsidian-900 overflow-hidden py-16">
-        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-40" />
-        <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full bg-emerald-500/5 blur-[100px]" />
-        <div className="page-container relative z-10">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-2 mb-4">
-              <Link href="/portal/dashboard" className="text-white/40 text-sm hover:text-white/60 transition-colors">Dashboard</Link>
-              <ChevronRight className="w-3.5 h-3.5 text-white/30" />
-              <span className="text-white/60 text-sm">RSSPC Verification</span>
-            </div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 mb-5">
-              <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="font-mono text-xs text-emerald-400 tracking-widest uppercase">Agent Verification Centre</span>
-            </div>
-            <h1 className="font-display text-4xl md:text-5xl font-light text-white leading-tight mb-4">
-              Get Your<br /><span className="text-emerald-400">Verification Badge</span>
-            </h1>
-            <p className="text-white/40 text-lg font-light leading-relaxed max-w-xl">
-              Verified agents on Naya get 4x more enquiries. Complete your RSSPC and identity verification to unlock the full power of the platform.
-            </p>
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" className="hidden"
+        accept="image/*,application/pdf" onChange={handleDocUpload} />
+
+      {/* Header */}
+      <header className="bg-obsidian-900 border-b border-white/10 sticky top-0 z-40">
+        <div className="page-container py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="font-display text-xl font-light text-white">NAYA</Link>
+            <ChevronRight className="w-4 h-4 text-white/30" />
+            <Link href="/portal/dashboard" className="text-white/40 text-sm hover:text-white/60">Dashboard</Link>
+            <ChevronRight className="w-4 h-4 text-white/30" />
+            <span className="text-white/60 text-sm">RSSPC Verification</span>
           </div>
+          <Link href="/portal/dashboard" className="text-white/50 hover:text-white text-sm">← Dashboard</Link>
         </div>
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 50L1440 50L1440 15C1200 50 960 0 720 15C480 30 240 0 0 15L0 50Z" fill="#FAFAF8"/>
-          </svg>
-        </div>
-      </section>
+      </header>
 
-      <section className="section-padding">
-        <div className="page-container">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="page-container py-8">
+        <div className="max-w-3xl mx-auto space-y-6">
 
-            {/* MAIN FORM */}
-            <div className="lg:col-span-2 space-y-5">
-
-              {/* Progress */}
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display text-xl font-medium text-obsidian-900">Verification Progress</h2>
-                  <span className="font-mono text-sm font-bold text-obsidian-900">{completedSteps}/{steps.length} Complete</span>
-                </div>
-                <div className="h-3 bg-surface-subtle rounded-full overflow-hidden mb-5">
-                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
-                    style={{ width: `${progress}%` }} />
-                </div>
-                <div className="space-y-3">
-                  {steps.map((s, i) => (
-                    <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${s.done ? 'bg-emerald-50 border-emerald-200' : i === completedSteps ? 'bg-gold-50 border-gold-300' : 'bg-surface-subtle border-surface-border'}`}>
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${s.done ? 'bg-emerald-500' : i === completedSteps ? 'bg-gold-500' : 'bg-obsidian-100'}`}>
-                        {s.done ? <CheckCircle2 className="w-5 h-5 text-white" /> : <s.icon className={`w-5 h-5 ${i === completedSteps ? 'text-obsidian-900' : 'text-obsidian-400'}`} />}
-                      </div>
-                      <div className="flex-1">
-                        <div className={`font-semibold text-sm ${s.done ? 'text-emerald-800' : 'text-obsidian-900'}`}>{s.title}</div>
-                        <div className="text-xs text-obsidian-400">{s.desc}</div>
-                      </div>
-                      {s.done && <span className="text-xs text-emerald-600 font-medium">Verified ✓</span>}
-                      {!s.done && i === completedSteps && <span className="text-xs text-gold-600 font-medium">Next →</span>}
-                    </div>
-                  ))}
-                </div>
+          {/* Status banner */}
+          <div className={`rounded-3xl p-6 ${cfg.bg} border ${isVerified ? 'border-emerald-200' : status === 'UNDER_REVIEW' ? 'border-amber-200' : status === 'REJECTED' ? 'border-rose-200' : 'border-obsidian-200'}`}>
+            <div className="flex items-start gap-4">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${isVerified ? 'bg-emerald-100' : status === 'UNDER_REVIEW' ? 'bg-amber-100' : 'bg-white'}`}>
+                <cfg.icon className={`w-7 h-7 ${cfg.color}`} />
               </div>
-
-              {/* RSSPC Number Input */}
-              <div className="card p-6">
-                <h2 className="font-display text-xl font-medium text-obsidian-900 mb-2">Step 3: CAC Registration</h2>
-                <p className="text-obsidian-400 text-sm mb-6">Upload your Corporate Affairs Commission (CAC) business registration certificate. This confirms you are operating a legitimate business in Nigeria.</p>
-
-                <div className="mb-5">
-                  <label className="input-label">CAC Registration Number</label>
-                  <div className="relative">
-                    <input type={showNumber ? 'text' : 'password'}
-                      className="input-field pr-10 text-sm font-mono"
-                      placeholder="e.g. RC-884721"
-                      value={rsspcNumber} onChange={e => setRsspcNumber(e.target.value)} />
-                    <button onClick={() => setShowNumber(!showNumber)} className="absolute right-3 top-1/2 -translate-y-1/2 text-obsidian-400">
-                      {showNumber ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Upload area */}
-                <div className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${uploaded ? 'border-emerald-400 bg-emerald-50' : 'border-surface-border hover:border-gold-400 bg-surface-subtle'}`}>
-                  {uploaded ? (
-                    <div>
-                      <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-                      <div className="font-semibold text-emerald-800 mb-1">Document Uploaded Successfully</div>
-                      <div className="text-xs text-emerald-600">CAC_Certificate.pdf · Under review</div>
-                    </div>
-                  ) : (
-                    <div>
-                      <Upload className="w-10 h-10 text-obsidian-300 mx-auto mb-3" />
-                      <div className="font-medium text-obsidian-700 mb-1">Upload CAC Certificate</div>
-                      <div className="text-xs text-obsidian-400 mb-4">PDF, JPG, or PNG · Max 5MB · Certificate must be clearly visible</div>
-                      <button onClick={handleUpload} disabled={uploading}
-                        className="btn-primary btn-sm gap-2 disabled:opacity-50">
-                        {uploading ? <><Loader2 className="w-4 h-4 animate-spin" />Uploading...</> : <><Upload className="w-4 h-4" />Choose File</>}
-                      </button>
-                    </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  <h2 className={`font-semibold text-lg ${cfg.color}`}>Status: {cfg.label}</h2>
+                  {data?.rsspcNumber && (
+                    <span className="px-3 py-0.5 bg-white/80 border border-obsidian-200 rounded-full text-xs font-mono font-bold text-obsidian-700">
+                      {data.rsspcNumber}
+                    </span>
                   )}
                 </div>
-
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2.5">
-                  <Lock className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-blue-700 leading-relaxed">Your documents are encrypted with AES-256 and stored in compliance with Nigeria's Data Protection Act 2023. Only our verification team can access them.</p>
-                </div>
-
-                <button className="btn-primary w-full justify-center mt-5" disabled={!uploaded}>
-                  Submit for Review <ArrowRight className="w-4 h-4" />
-                </button>
+                <p className="text-sm text-obsidian-600">{cfg.desc}</p>
+                {isVerified && data?.rsspcExpiresAt && (
+                  <p className="text-xs text-obsidian-400 mt-1">
+                    Verified on {new Date(data.rsspcVerifiedAt!).toLocaleDateString('en-NG', { day:'numeric', month:'long', year:'numeric' })} · 
+                    Expires {new Date(data.rsspcExpiresAt).toLocaleDateString('en-NG', { day:'numeric', month:'long', year:'numeric' })}
+                  </p>
+                )}
               </div>
+              {!isVerified && (
+                <button onClick={fetchData} className="flex items-center gap-1.5 text-xs text-obsidian-400 hover:text-obsidian-700 transition-colors flex-shrink-0">
+                  <RefreshCw className="w-3.5 h-3.5" />Refresh
+                </button>
+              )}
+            </div>
+          </div>
 
-              {/* FAQ */}
-              <div className="card p-6">
-                <h2 className="font-display text-xl font-medium text-obsidian-900 mb-5">Verification FAQs</h2>
-                <div className="space-y-2">
-                  {faq.map((f, i) => (
-                    <div key={i} className="border border-surface-border rounded-xl overflow-hidden">
-                      <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-subtle transition-colors">
-                        <span className="font-medium text-obsidian-900 text-sm">{f.q}</span>
-                        <ChevronRight className={`w-4 h-4 text-gold-500 flex-shrink-0 transition-transform ${openFaq === i ? 'rotate-90' : ''}`} />
-                      </button>
-                      {openFaq === i && (
-                        <div className="px-4 pb-4 border-t border-surface-border">
-                          <p className="text-sm text-obsidian-500 leading-relaxed pt-3">{f.a}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          {/* Alerts */}
+          {error && (
+            <div className="flex items-start gap-2.5 p-4 bg-rose-50 border border-rose-200 rounded-2xl">
+              <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-rose-700 flex-1">{error}</p>
+              <button onClick={() => setError('')}><X className="w-4 h-4 text-rose-400" /></button>
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2.5 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <p className="text-sm text-emerald-700">{success}</p>
+            </div>
+          )}
+
+          {/* STEP 1 — RSSPC Details */}
+          <div className="card overflow-hidden">
+            <div className="p-5 border-b border-surface-border flex items-center gap-3 bg-surface-subtle">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${data?.rsspcNumber ? 'bg-emerald-500 text-white' : 'bg-obsidian-900 text-white'}`}>
+                {data?.rsspcNumber ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+              </div>
+              <div>
+                <h3 className="font-semibold text-obsidian-900">RSSPC Licence Details</h3>
+                <p className="text-xs text-obsidian-400">Enter your Rivers State Real Estate Practitioners Council number</p>
               </div>
             </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+                <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-blue-700">
+                  Your RSSPC number is on your licence certificate (format: RS-YYYY-XXXX). 
+                  Contact the RSSPC at <strong>+234 84 123456</strong> or visit their office in GRA Phase 1 if you need to register or renew.
+                </p>
+              </div>
 
-            {/* SIDEBAR */}
-            <div className="space-y-5">
-
-              {/* Status card */}
-              <div className="card p-5">
-                <h3 className="font-display text-base font-medium text-obsidian-900 mb-4">Verification Status</h3>
-                <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
-                  <Clock className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                  <div>
-                    <div className="font-semibold text-amber-900 text-sm">In Progress</div>
-                    <div className="text-xs text-amber-600">2 of 5 steps complete</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="input-label">RSSPC Licence Number *</label>
+                  <input className="input-field text-sm font-mono uppercase" placeholder="RS-2024-XXXX"
+                    value={form.rsspcNumber} onChange={e => set('rsspcNumber', e.target.value.toUpperCase())}
+                    disabled={!canEdit} required />
+                  <p className="text-xs text-obsidian-400 mt-1">Format: RS-YYYY-NNNN</p>
+                </div>
+                <div>
+                  <label className="input-label">Agency / Business Name *</label>
+                  <input className="input-field text-sm" placeholder="Your Agency Name Ltd"
+                    value={form.agencyName} onChange={e => set('agencyName', e.target.value)}
+                    disabled={!canEdit} />
+                </div>
+                <div>
+                  <label className="input-label">CAC Registration Number</label>
+                  <input className="input-field text-sm font-mono" placeholder="RC-XXXXXX"
+                    value={form.cacNumber} onChange={e => set('cacNumber', e.target.value)}
+                    disabled={!canEdit} />
+                </div>
+                <div>
+                  <label className="input-label">WhatsApp Business Number</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-obsidian-400 text-sm">🇳🇬</span>
+                    <input className="input-field pl-8 text-sm" placeholder="+234 080..."
+                      value={form.whatsapp} onChange={e => set('whatsapp', e.target.value)}
+                      disabled={!canEdit} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  {steps.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-xs">
-                      {s.done ? <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" /> : <div className="w-4 h-4 rounded-full border-2 border-obsidian-200 flex-shrink-0" />}
-                      <span className={s.done ? 'text-emerald-700 font-medium' : 'text-obsidian-500'}>{s.title}</span>
-                    </div>
-                  ))}
+                <div>
+                  <label className="input-label">Years Active in Real Estate</label>
+                  <select className="input-field text-sm" value={form.yearsActive}
+                    onChange={e => set('yearsActive', e.target.value)} disabled={!canEdit}>
+                    <option value="">Select</option>
+                    {['Less than 1','1-2','3-5','5-10','10+'].map((v,i) => <option key={i} value={i}>{v} years</option>)}
+                  </select>
                 </div>
               </div>
 
-              {/* Benefits */}
-              <div className="card p-5">
-                <h3 className="font-display text-base font-medium text-obsidian-900 mb-4 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-500" />Verification Benefits
-                </h3>
-                <div className="space-y-2.5">
-                  {benefits.map((b, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-xs text-obsidian-600 leading-relaxed">{b}</span>
-                    </div>
-                  ))}
-                </div>
+              <div>
+                <label className="input-label">Professional Bio</label>
+                <textarea className="input-field resize-none h-24 text-sm"
+                  placeholder="Describe your experience, specializations, and areas you cover in Port Harcourt..."
+                  value={form.bio} onChange={e => set('bio', e.target.value)}
+                  disabled={!canEdit} />
               </div>
 
-              {/* Support */}
-              <div className="card p-5 bg-obsidian-900 relative overflow-hidden">
-                <div className="absolute inset-0 bg-grid-gold bg-grid opacity-30" />
-                <div className="relative z-10">
-                  <div className="text-2xl mb-3">🤝</div>
-                  <h3 className="font-display text-base font-medium text-white mb-2">Need Help?</h3>
-                  <p className="text-white/40 text-xs leading-relaxed mb-4">Our verification team is available to guide you through the process.</p>
-                  <a href="mailto:verification@naya.ng" className="btn-primary btn-sm w-full justify-center">Contact Verification Team</a>
+              {canEdit && (
+                <button type="submit" disabled={saving || !form.rsspcNumber.trim()}
+                  className="btn-primary gap-2 disabled:opacity-60">
+                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : <><CheckCircle2 className="w-4 h-4" />Save RSSPC Details</>}
+                </button>
+              )}
+            </form>
+          </div>
+
+          {/* STEP 2 — Document Upload */}
+          <div className="card overflow-hidden">
+            <div className="p-5 border-b border-surface-border flex items-center gap-3 bg-surface-subtle">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${requiredDocsDone ? 'bg-emerald-500 text-white' : 'bg-obsidian-900 text-white'}`}>
+                {requiredDocsDone ? <CheckCircle2 className="w-4 h-4" /> : '2'}
+              </div>
+              <div>
+                <h3 className="font-semibold text-obsidian-900">Upload Documents</h3>
+                <p className="text-xs text-obsidian-400">Upload clear photos or scans of your documents (JPG, PNG, PDF · Max 5MB each)</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              {docTypes.map(doc => {
+                const uploaded = getDoc(doc.key)
+                const isUploading = uploadingDoc === doc.key
+                return (
+                  <div key={doc.key} className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${uploaded ? 'border-emerald-200 bg-emerald-50' : 'border-surface-border bg-surface-subtle hover:border-gold-200'}`}>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${uploaded ? 'bg-emerald-100' : 'bg-white'}`}>
+                      {uploaded ? <CheckCircle2 className="w-6 h-6 text-emerald-500" /> : <doc.icon className="w-6 h-6 text-obsidian-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-obsidian-900 text-sm">{doc.label}</p>
+                        {doc.required && <span className="text-[10px] text-rose-500 font-bold">REQUIRED</span>}
+                        {!doc.required && <span className="text-[10px] text-obsidian-400">Optional</span>}
+                      </div>
+                      <p className="text-xs text-obsidian-400 mt-0.5">{doc.desc}</p>
+                      {uploaded && (
+                        <p className="text-xs text-emerald-600 mt-1 font-medium">
+                          ✓ {uploaded.fileName} · {uploaded.status === 'VERIFIED' ? 'Verified' : uploaded.status === 'REJECTED' ? 'Rejected — please reupload' : 'Under review'}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => triggerUpload(doc.key)}
+                      disabled={isUploading || isVerified}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0 ${uploaded ? 'bg-white border border-obsidian-200 text-obsidian-600 hover:border-gold-300' : 'bg-obsidian-900 text-white hover:bg-obsidian-800'} disabled:opacity-50`}>
+                      {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      {isUploading ? 'Uploading...' : uploaded ? 'Replace' : 'Upload'}
+                    </button>
+                  </div>
+                )
+              })}
+
+              {/* Progress indicator */}
+              <div className="mt-2 p-4 bg-surface-subtle rounded-xl">
+                <div className="flex justify-between text-xs text-obsidian-600 mb-2">
+                  <span>Documents uploaded</span>
+                  <span className="font-semibold">{uploadedDocs.length} / {docTypes.length} ({docTypes.filter(d=>d.required).length} required)</span>
+                </div>
+                <div className="h-2 bg-surface-border rounded-full overflow-hidden">
+                  <div className="h-full bg-gold-500 rounded-full transition-all"
+                    style={{ width: `${(uploadedDocs.length / docTypes.length) * 100}%` }} />
                 </div>
               </div>
             </div>
           </div>
+
+          {/* STEP 3 — Review */}
+          <div className="card overflow-hidden">
+            <div className="p-5 border-b border-surface-border flex items-center gap-3 bg-surface-subtle">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isVerified ? 'bg-emerald-500 text-white' : status === 'UNDER_REVIEW' ? 'bg-amber-500 text-white' : 'bg-obsidian-200 text-obsidian-500'}`}>
+                {isVerified ? <CheckCircle2 className="w-4 h-4" /> : '3'}
+              </div>
+              <div>
+                <h3 className="font-semibold text-obsidian-900">Naya Review</h3>
+                <p className="text-xs text-obsidian-400">Our team verifies with RSSPC and reviews your documents</p>
+              </div>
+            </div>
+            <div className="p-6">
+              {isVerified ? (
+                <div className="text-center py-4">
+                  <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                    <Shield className="w-10 h-10 text-emerald-500" />
+                  </div>
+                  <h3 className="font-display text-2xl font-medium text-emerald-700 mb-2">Fully Verified ✓</h3>
+                  <p className="text-obsidian-500 text-sm max-w-sm mx-auto">
+                    Your RSSPC badge is now active on your profile and all your listings. Buyers and renters can trust you are a verified professional.
+                  </p>
+                </div>
+              ) : status === 'UNDER_REVIEW' ? (
+                <div className="flex items-start gap-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                  <Clock className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-700">Under Review</p>
+                    <p className="text-sm text-amber-600 mt-1">Our team is reviewing your submission. This typically takes 24–48 business hours. You'll receive a notification when complete.</p>
+                    <p className="text-xs text-amber-500 mt-2">Questions? Email <strong>verify@naya.ng</strong> with your RSSPC number as the subject.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-obsidian-600">Once you complete Steps 1 and 2, our team will:</p>
+                  {[
+                    'Cross-check your RSSPC number with the official RSSPC register',
+                    'Verify your identity documents match your RSSPC registration',
+                    'Confirm your agency details and CAC registration if provided',
+                    'Activate your verified badge within 24–48 business hours',
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full border-2 border-obsidian-200 flex items-center justify-center flex-shrink-0">
+                        <span className="text-[10px] font-bold text-obsidian-400">{i+1}</span>
+                      </div>
+                      <p className="text-sm text-obsidian-600">{item}</p>
+                    </div>
+                  ))}
+                  <div className="mt-4 p-3 bg-gold-50 border border-gold-200 rounded-xl">
+                    <p className="text-xs text-gold-700">
+                      <strong>Not registered with RSSPC yet?</strong> Visit the Rivers State Real Estate Practitioners Council office at Plot 27, Stadium Road, Port Harcourt or call <strong>+234 803 000 0000</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Benefits */}
+          {!isVerified && (
+            <div className="card p-6">
+              <h3 className="font-semibold text-obsidian-900 mb-4 flex items-center gap-2">
+                <Award className="w-5 h-5 text-gold-600" />Why get verified?
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  '✅ RSSPC badge on all your listings',
+                  '✅ Priority placement in search results',
+                  '✅ Access to Pro & Premium plans',
+                  '✅ Trusted Agent seal on WhatsApp',
+                  '✅ Eligibility for Top Agent programme',
+                  '✅ Downloadable Verification Certificate',
+                ].map((b, i) => (
+                  <p key={i} className="text-sm text-obsidian-600">{b}</p>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </section>
+      </div>
     </div>
   )
 }

@@ -140,7 +140,20 @@ export async function POST(req: NextRequest) {
       data: { totalListings: { increment: 1 } }
     })
 
-    console.log(`[LISTING CREATED] ${listing.id} by agent ${agent.id}`)
+    // Save image URLs if provided
+    const imageUrls: string[] = Array.isArray(body.imageUrls) ? body.imageUrls : []
+    if (imageUrls.length > 0) {
+      await prisma.listingImage.createMany({
+        data: imageUrls.map((url: string, i: number) => ({
+          listingId:  listing.id,
+          url,
+          isPrimary:  i === 0,
+          sortOrder:  i,
+        }))
+      })
+    }
+
+    console.log(`[LISTING CREATED] ${listing.id} by agent ${agent.id}, photos: ${imageUrls.length}`)
 
     return NextResponse.json({
       success: true,

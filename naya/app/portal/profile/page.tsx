@@ -71,12 +71,8 @@ export default function ProfilePage() {
           rsspcNumber: json.data.rsspcNumber || '',
           agencyName:  json.data.agencyName  || '',
         }))
-        // Resume from correct step if already started
+        // Always start from step 1 so user goes through full flow
         if (json.data.rsspcStatus === 'VERIFIED') setSubmitted(true)
-        else if (json.data.docs?.length > 0) setStep(4)
-        else if (json.data.rsspcStatus === 'SUBMITTED') setStep(3)
-        else if (json.data.rsspcNumber) setStep(2)
-        else setStep(1)
       }
     } catch { setError('Failed to load data') }
     finally { setLoading(false) }

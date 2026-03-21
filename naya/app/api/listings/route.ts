@@ -1,72 +1,39 @@
-// app/api/listings/route.ts
-import { NextRequest } from 'next/server'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { requireAgent } from '@/lib/api/helpers'
-import {
-  ok, created, badRequest, forbidden, serverError,
-  validate, auditLog, getPagination, paginatedResponse,
-  generateSlug, getClientIp
-} from '@/lib/api/helpers'
-import { AuditAction, ListingStatus, ListingType, PropertyType } from '@prisma/client'
+import { getCurrentUser } from '@/lib/api/auth'
 
 // ── GET /api/listings ─────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
-  const { page, limit, skip } = getPagination(sp)
+  const page  = Math.max(1, parseInt(sp.get('page') || '1'))
+  const limit = Math.min(50, parseInt(sp.get('limit') || '12'))
+  const skip  = (page - 1) * limit
 
   try {
-    const where: any = { status: ListingStatus.ACTIVE }
-
-    // Filters
-    const listingType = sp.get('type')
-    if (listingType) where.listingType = listingType.toUpperCase()
-
-    const propertyType = sp.get('propertyType')
-    if (propertyType) where.propertyType = propertyType.toUpperCase()
-
-    const neighborhood = sp.get('neighborhood')
-    if (neighborhood) where.neighborhood = { contains: neighborhood, mode: 'insensitive' }
-
-    const minPrice = sp.get('minPrice')
-    const maxPrice = sp.get('maxPrice')
-    if (minPrice || maxPrice) {
+    const where: any = { status: 'ACTIVE' }
+    if (sp.get('type'))         where.listingType   = sp.get('type')!.toUpperCase()
+    if (sp.get('propertyType')) where.propertyType  = sp.get('propertyType')!.toUpperCase()
+    if (sp.get('neighborhood')) where.neighborhood  = { contains: sp.get('neighborhood'), mode: 'insensitive' }
+    if (sp.get('minBeds'))      where.bedrooms       = { gte: parseInt(sp.get('minBeds')!) }
+    if (sp.get('minPrice') || sp.get('maxPrice')) {
       where.price = {}
-      if (minPrice) where.price.gte = BigInt(minPrice)
-      if (maxPrice) where.price.lte = BigInt(maxPrice)
+      if (sp.get('minPrice')) where.price.gte = BigInt(sp.get('minPrice')!)
+      if (sp.get('maxPrice')) where.price.lte = BigInt(sp.get('maxPrice')!)
     }
-
-    const minBeds = sp.get('minBeds')
-    if (minBeds) where.bedrooms = { gte: parseInt(minBeds) }
-
-    const featured = sp.get('featured')
-    if (featured === 'true') where.isFeatured = true
-
-    const verified = sp.get('verified')
-    if (verified === 'true') where.isVerified = true
-
-    const q = sp.get('q')
-    if (q) {
+    if (sp.get('q')) {
       where.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-        { neighborhood: { contains: q, mode: 'insensitive' } },
-        { address: { contains: q, mode: 'insensitive' } },
+        { title:        { contains: sp.get('q'), mode: 'insensitive' } },
+        { neighborhood: { contains: sp.get('q'), mode: 'insensitive' } },
+        { address:      { contains: sp.get('q'), mode: 'insensitive' } },
       ]
     }
 
-    // Sort
-    const sortBy = sp.get('sort') || 'featured'
-    const orderBy: any[] = []
-    if (sortBy === 'price_asc') orderBy.push({ price: 'asc' })
-    else if (sortBy === 'price_desc') orderBy.push({ price: 'desc' })
-    else if (sortBy === 'newest') orderBy.push({ createdAt: 'desc' })
-    else if (sortBy === 'popular') orderBy.push({ views: 'desc' })
-    else {
-      orderBy.push({ isFeatured: 'desc' })
-      orderBy.push({ isPremium: 'desc' })
-      orderBy.push({ createdAt: 'desc' })
-    }
+    const sort = sp.get('sort') || 'featured'
+    const orderBy: any[] =
+      sort === 'price_asc'  ? [{ price: 'asc' }] :
+      sort === 'price_desc' ? [{ price: 'desc' }] :
+      sort === 'newest'     ? [{ createdAt: 'desc' }] :
+      [{ isFeatured: 'desc' }, { createdAt: 'desc' }]
 
     const [listings, total] = await Promise.all([
       prisma.listing.findMany({
@@ -75,8 +42,7 @@ export async function GET(req: NextRequest) {
           images: { where: { isPrimary: true }, take: 1 },
           agent: {
             select: {
-              id: true, agencyName: true, badge: true,
-              rsspcStatus: true, avgRating: true, reviewCount: true,
+              id: true, badge: true, agencyName: true,
               user: { select: { firstName: true, lastName: true, avatarUrl: true } }
             }
           }
@@ -85,124 +51,107 @@ export async function GET(req: NextRequest) {
       prisma.listing.count({ where })
     ])
 
-    // Increment view counts asynchronously (fire-and-forget)
-    const ids = listings.map(l => l.id)
-    if (ids.length > 0) {
-      prisma.listing.updateMany({
-        where: { id: { in: ids } },
-        data: { views: { increment: 1 } }
-      }).catch(() => {})
-    }
-
-    return ok(paginatedResponse(listings, total, page, limit))
-  } catch (e) {
-    console.error('GET /api/listings error:', e)
-    return serverError()
+    return NextResponse.json({
+      success: true,
+      data: { listings, total, page, pages: Math.ceil(total / limit) }
+    })
+  } catch (e: any) {
+    console.error('[GET listings]', e?.message)
+    return NextResponse.json({ success: false, error: 'Failed to fetch listings' }, { status: 500 })
   }
 }
 
 // ── POST /api/listings ────────────────────────────────────────
-const createListingSchema = z.object({
-  title:         z.string().min(10).max(200).trim(),
-  description:   z.string().min(50).max(5000).trim(),
-  propertyType:  z.nativeEnum(PropertyType),
-  listingType:   z.nativeEnum(ListingType),
-  price:         z.number().positive().int(),
-  pricePeriod:   z.enum(['MONTHLY', 'YEARLY', 'TOTAL', 'PER_NIGHT']),
-  bedrooms:      z.number().int().min(0).max(20).default(0),
-  bathrooms:     z.number().int().min(0).max(20).default(0),
-  toilets:       z.number().int().min(0).max(20).default(0),
-  sizeSqm:       z.number().positive().optional(),
-  address:       z.string().min(5).max(200).trim(),
-  neighborhood:  z.string().min(2).max(100).trim(),
-  lga:           z.string().min(2).max(100).trim(),
-  state:         z.string().default('Rivers'),
-  latitude:      z.number().optional(),
-  longitude:     z.number().optional(),
-  amenities:     z.array(z.string()).default([]),
-  features:      z.array(z.string()).default([]),
-  yearBuilt:     z.number().int().min(1900).max(2030).optional(),
-  parkingSpaces: z.number().int().min(0).max(50).default(0),
-  virtualTour:   z.boolean().default(false),
-  priceNegotiable: z.boolean().default(false),
-  titleType:     z.string().optional(),
-  landUse:       z.string().optional(),
-})
-
 export async function POST(req: NextRequest) {
-  const { agent, error } = await requireAgent(req)
-  if (error) return error
-
-  // Check plan limits
-  const planLimits = { STARTER: 3, PRO: 25, PREMIUM: Infinity }
-  const maxListings = planLimits[agent!.plan] || 3
-  if (agent!.activeListings >= maxListings) {
-    return forbidden(
-      `Your ${agent!.plan} plan allows a maximum of ${maxListings} active listings. ` +
-      `Upgrade to list more properties.`
-    )
+  // Auth check
+  const user = await getCurrentUser(req)
+  if (!user) {
+    return NextResponse.json({ success: false, error: 'Please sign in to list a property' }, { status: 401 })
+  }
+  if (!['AGENT','LANDLORD','ADMIN'].includes(user.accountType)) {
+    return NextResponse.json({ success: false, error: 'You need an agent or landlord account to list properties' }, { status: 403 })
   }
 
-  let body: unknown
-  try { body = await req.json() }
-  catch { return badRequest('Invalid JSON') }
+  // Get or create agent profile
+  let agent = await prisma.agentProfile.findUnique({ where: { userId: user.id } })
+  if (!agent) {
+    agent = await prisma.agentProfile.create({ data: { userId: user.id } })
+  }
 
-  const { data, error: validationError } = await validate(createListingSchema, body)
-  if (validationError) return validationError
+  // Plan limits
+  const limits: Record<string,number> = { STARTER: 3, PRO: 25, PREMIUM: 999 }
+  const max = limits[agent.plan] || 3
+  if (agent.activeListings >= max) {
+    return NextResponse.json({
+      success: false,
+      error: `Your ${agent.plan} plan allows ${max} active listings. Upgrade to list more.`
+    }, { status: 403 })
+  }
+
+  let body: any
+  try { body = await req.json() } catch {
+    return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 })
+  }
+
+  // Validate required fields
+  const { title, description, propertyType, listingType, price, pricePeriod, address, neighborhood, lga } = body
+  if (!title || !description || !propertyType || !listingType || !price || !address || !neighborhood) {
+    return NextResponse.json({ success: false, error: 'Please fill in all required fields' }, { status: 400 })
+  }
+
+  // Generate unique slug
+  const rand = Math.random().toString(36).substring(2, 10)
+  const slug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 50)}-${rand}`
 
   try {
-    const id = Math.random().toString(36).substring(2, 10)
-    const slug = generateSlug(data!.title, id)
-
     const listing = await prisma.listing.create({
       data: {
         slug,
-        agentId:      agent!.id,
-        title:        data!.title,
-        description:  data!.description,
-        propertyType: data!.propertyType,
-        listingType:  data!.listingType,
-        price:        BigInt(data!.price),
-        pricePeriod:  data!.pricePeriod as any,
-        bedrooms:     data!.bedrooms,
-        bathrooms:    data!.bathrooms,
-        toilets:      data!.toilets,
-        sizeSqm:      data!.sizeSqm,
-        address:      data!.address,
-        neighborhood: data!.neighborhood,
-        lga:          data!.lga,
-        state:        data!.state,
-        latitude:     data!.latitude,
-        longitude:    data!.longitude,
-        amenities:    data!.amenities,
-        features:     data!.features,
-        yearBuilt:    data!.yearBuilt,
-        parkingSpaces:data!.parkingSpaces,
-        virtualTour:  data!.virtualTour,
-        priceNegotiable: data!.priceNegotiable,
-        titleType:    data!.titleType as any,
-        landUse:      data!.landUse as any,
-        status:       ListingStatus.PENDING_REVIEW,
-      },
-      include: { images: true }
+        agentId:          agent.id,
+        title:            title.trim(),
+        description:      description.trim(),
+        propertyType:     propertyType.toUpperCase(),
+        listingType:      listingType.toUpperCase(),
+        price:            BigInt(Math.round(Number(String(price).replace(/,/g,'')))),
+        pricePeriod:      (pricePeriod || 'YEARLY').toUpperCase(),
+        priceNegotiable:  body.priceNegotiable || false,
+        bedrooms:         parseInt(body.bedrooms) || 0,
+        bathrooms:        parseInt(body.bathrooms) || 0,
+        toilets:          parseInt(body.toilets) || 0,
+        sizeSqm:          body.sizeSqm ? parseFloat(body.sizeSqm) : null,
+        yearBuilt:        body.yearBuilt ? parseInt(body.yearBuilt) : null,
+        parkingSpaces:    parseInt(body.parkingSpaces) || 0,
+        furnishingStatus: body.furnishingStatus || null,
+        address:          address.trim(),
+        neighborhood:     neighborhood.trim(),
+        lga:              (lga || 'Port Harcourt').trim(),
+        state:            'Rivers',
+        amenities:        Array.isArray(body.amenities) ? body.amenities : [],
+        features:         Array.isArray(body.features)  ? body.features  : [],
+        virtualTour:      body.virtualTour || false,
+        status:           'PENDING_REVIEW',
+        isNew:            true,
+      }
     })
 
-    // Update agent active listing count
+    // Update agent stats
     await prisma.agentProfile.update({
-      where: { id: agent!.id },
+      where: { id: agent.id },
       data: { totalListings: { increment: 1 } }
     })
 
-    await auditLog(AuditAction.LISTING_CREATED, agent!.userId, {
-      listingId: listing.id, title: listing.title
-    }, req)
+    console.log(`[LISTING CREATED] ${listing.id} by agent ${agent.id}`)
 
-    return created({
-      listing,
-      message: 'Listing submitted for review. It will go live within 24 hours.'
-    })
-  } catch (e) {
-    console.error('POST /api/listings error:', e)
-    return serverError()
+    return NextResponse.json({
+      success: true,
+      data: { listingId: listing.id, slug: listing.slug, message: 'Listing submitted for review. Goes live within 24 hours.' }
+    }, { status: 201 })
+
+  } catch (e: any) {
+    console.error('[CREATE LISTING ERROR]', e?.message, e?.code)
+    if (e?.code === 'P2002') {
+      return NextResponse.json({ success: false, error: 'A listing with this title already exists. Please use a slightly different title.' }, { status: 409 })
+    }
+    return NextResponse.json({ success: false, error: 'Failed to create listing: ' + (e?.message || 'Unknown error') }, { status: 500 })
   }
 }

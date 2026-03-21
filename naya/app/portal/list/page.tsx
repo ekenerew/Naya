@@ -98,7 +98,11 @@ export default function ListPropertyPage() {
       })
       const data = await res.json()
       if (res.status === 401) { router.push('/login'); return }
-      if (!res.ok) { setError(data.error || 'Failed to submit listing. Please try again.'); return }
+      if (!res.ok) { 
+        setError(data.error || data.message || 'Failed to submit listing. Please try again.')
+        console.error('Listing error:', data)
+        return 
+      }
       setSuccess(true)
     } catch {
       setError('Network error. Please check your connection.')

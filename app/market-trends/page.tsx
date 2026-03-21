@@ -184,7 +184,7 @@ export default function MarketTrendsPage() {
     if (!chatOpen) setChatOpen(true)
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -198,7 +198,7 @@ export default function MarketTrendsPage() {
         })
       })
       const data = await response.json()
-      const reply = data.content?.[0]?.text || 'I could not generate a response. Please try again.'
+      const reply = data.content || 'I could not generate a response. Please try again.'
       setMessages(prev => [...prev, { role: 'assistant', content: reply, timestamp: new Date() }])
     } catch {
       setMessages(prev => [...prev, {

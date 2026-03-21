@@ -232,7 +232,7 @@ export default function MortgagePage() {
     setMessages(prev => [...prev, { role: 'user', content: msg }])
     setAiLoading(true)
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -243,7 +243,7 @@ export default function MortgagePage() {
         })
       })
       const data = await response.json()
-      const reply = data.content?.[0]?.text || 'Sorry, I could not generate a response. Please try again.'
+      const reply = data.content || 'Sorry, I could not generate a response. Please try again.'
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'I\'m having trouble connecting. Please try again in a moment.' }])

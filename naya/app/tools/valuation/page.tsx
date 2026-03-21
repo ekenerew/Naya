@@ -236,7 +236,7 @@ export default function ValuationPage() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -246,7 +246,7 @@ export default function ValuationPage() {
         })
       })
       const data = await response.json()
-      const text = data.content?.[0]?.text || ''
+      const text = data.content || ''
       const clean = text.replace(/```json|```/g, '').trim()
       const parsed: ValuationResult = JSON.parse(clean)
       setResult(parsed)

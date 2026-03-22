@@ -48,9 +48,9 @@ export default function Footer() {
               <Image
                 src="/naya-logo.png"
                 alt="Naya Real Estate"
-                width={160}
-                height={64}
-                className="h-16 w-auto object-contain"
+                width={180}
+                height={72}
+                className="h-18 w-auto object-contain brightness-110"
               />
             </Link>
             <p className="text-sm text-white/40 leading-relaxed mb-6 max-w-xs">

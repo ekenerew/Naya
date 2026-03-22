@@ -101,7 +101,7 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link href="/" className="flex items-center flex-shrink-0">
-              <Image src="/naya-logo.png" alt="Naya" width={140} height={56} className="h-12 w-auto object-contain" priority />
+              <Image src="/naya-logo.png" alt="Naya" width={160} height={64} className="h-14 w-auto object-contain brightness-110" priority />
             </Link>
 
             {/* Desktop Nav */}

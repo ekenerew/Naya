@@ -22,12 +22,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col">
         <DiasporaProvider>
-        <DiasporaBanner />
-        <Navbar />
-        <main className="flex-1 pt-16 md:pt-[68px]">
-          {children}
-        </main>
-        <Footer />
+          <DiasporaBanner />
+          <Navbar />
+          <main className="flex-1 pt-16 md:pt-[68px]">
+            {children}
+          </main>
+          <Footer />
+        </DiasporaProvider>
       </body>
     </html>
   )

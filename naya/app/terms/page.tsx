@@ -1,3 +1,4 @@
+'use client'
 import { FileText, Mail } from 'lucide-react'
 
 const sections = [

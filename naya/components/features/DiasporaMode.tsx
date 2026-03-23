@@ -1,18 +1,9 @@
 'use client'
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
-import { Globe, ChevronDown } from 'lucide-react'
+import { Globe, Check, ChevronDown } from 'lucide-react'
 
+// ── Types ─────────────────────────────────────────────────────
 type Currency = { code: string; symbol: string; flag: string; name: string; rate: number }
-
-const CURRENCIES: Currency[] = [
-  { code:'NGN', symbol:'₦',  flag:'🇳🇬', name:'Nigerian Naira',   rate: 1 },
-  { code:'USD', symbol:'$',  flag:'🇺🇸', name:'US Dollar',        rate: 0.00063 },
-  { code:'GBP', symbol:'£',  flag:'🇬🇧', name:'British Pound',    rate: 0.00050 },
-  { code:'EUR', symbol:'€',  flag:'🇪🇺', name:'Euro',             rate: 0.00059 },
-  { code:'CAD', symbol:'C$', flag:'🇨🇦', name:'Canadian Dollar',  rate: 0.00086 },
-  { code:'AUD', symbol:'A$', flag:'🇦🇺', name:'Australian Dollar',rate: 0.00098 },
-]
-
 type DiasporaCtx = {
   currency: Currency
   setCurrency: (c: Currency) => void
@@ -20,7 +11,18 @@ type DiasporaCtx = {
   diasporaMode: boolean
 }
 
-const DiasporaContext = createContext<DiasporaCtx>({
+// ── Data ──────────────────────────────────────────────────────
+export const CURRENCIES: Currency[] = [
+  { code:'NGN', symbol:'₦',  flag:'🇳🇬', name:'Nigerian Naira',    rate: 1        },
+  { code:'USD', symbol:'$',  flag:'🇺🇸', name:'US Dollar',         rate: 0.00063  },
+  { code:'GBP', symbol:'£',  flag:'🇬🇧', name:'British Pound',     rate: 0.00050  },
+  { code:'EUR', symbol:'€',  flag:'🇪🇺', name:'Euro',              rate: 0.00059  },
+  { code:'CAD', symbol:'C$', flag:'🇨🇦', name:'Canadian Dollar',   rate: 0.00086  },
+  { code:'AUD', symbol:'A$', flag:'🇦🇺', name:'Australian Dollar', rate: 0.00098  },
+]
+
+// ── Context ───────────────────────────────────────────────────
+const Ctx = createContext<DiasporaCtx>({
   currency: CURRENCIES[0],
   setCurrency: () => {},
   convert: (n) => `₦${n.toLocaleString()}`,
@@ -28,15 +30,13 @@ const DiasporaContext = createContext<DiasporaCtx>({
 })
 
 export function DiasporaProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrencyState] = useState(CURRENCIES[0])
+  const [currency, setCurrencyState] = useState<Currency>(CURRENCIES[0])
 
   useEffect(() => {
     try {
       const saved = localStorage.getItem('naya_currency')
-      if (saved) {
-        const c = CURRENCIES.find(c => c.code === saved)
-        if (c) setCurrencyState(c)
-      }
+      const match = CURRENCIES.find(c => c.code === saved)
+      if (match) setCurrencyState(match)
     } catch {}
   }, [])
 
@@ -48,81 +48,175 @@ export function DiasporaProvider({ children }: { children: ReactNode }) {
   const convert = (naira: number): string => {
     const val = naira * currency.rate
     if (currency.code === 'NGN') {
-      if (naira >= 1_000_000) return `₦${(naira/1_000_000).toFixed(1)}M`
-      if (naira >= 1_000)     return `₦${(naira/1_000).toFixed(0)}K`
+      if (naira >= 1_000_000) return `₦${(naira / 1_000_000).toFixed(1)}M`
+      if (naira >= 1_000)     return `₦${(naira / 1_000).toFixed(0)}K`
       return `₦${naira.toLocaleString()}`
     }
-    if (val >= 1_000_000) return `${currency.symbol}${(val/1_000_000).toFixed(2)}M`
-    if (val >= 1_000)     return `${currency.symbol}${(val/1_000).toFixed(1)}K`
+    if (val >= 1_000_000) return `${currency.symbol}${(val / 1_000_000).toFixed(2)}M`
+    if (val >= 1_000)     return `${currency.symbol}${(val / 1_000).toFixed(1)}K`
     return `${currency.symbol}${val.toFixed(0)}`
   }
 
   return (
-    <DiasporaContext.Provider value={{ currency, setCurrency, convert, diasporaMode: currency.code !== 'NGN' }}>
+    <Ctx.Provider value={{ currency, setCurrency, convert, diasporaMode: currency.code !== 'NGN' }}>
       {children}
-    </DiasporaContext.Provider>
+    </Ctx.Provider>
   )
 }
 
-export const useDiaspora = () => useContext(DiasporaContext)
+export const useDiaspora = () => useContext(Ctx)
 
 // ── Currency Switcher ─────────────────────────────────────────
 export function CurrencySwitcher({ dark = false }: { dark?: boolean }) {
   const { currency, setCurrency } = useDiaspora()
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
-  // Close on outside click
+  // Close when clicking outside
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    function onOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false)
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+    if (open) {
+      // Use capture phase so it fires before anything else
+      document.addEventListener('click', onOutside, true)
+      return () => document.removeEventListener('click', onOutside, true)
+    }
+  }, [open])
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setOpen(prev => !prev)
+  }
+
+  const handleSelect = (e: React.MouseEvent, c: Currency) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCurrency(c)
+    setOpen(false)
+  }
+
+  const isForeign = currency.code !== 'NGN'
 
   return (
-    <div className="relative" ref={ref}>
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block' }}>
+      {/* Trigger button */}
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen(prev => !prev) }}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
-          dark
-            ? 'border-white/20 text-white hover:bg-white/10 bg-white/5'
-            : 'border-surface-border text-obsidian-700 hover:border-gold-400 bg-white'
-        } ${currency.code !== 'NGN' ? 'border-blue-400 bg-blue-500/10' : ''}`}>
-        <span className="text-base leading-none">{currency.flag}</span>
-        <span className="font-semibold text-xs">{currency.code}</span>
-        <ChevronDown className={`w-3 h-3 opacity-60 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        type="button"
+        onClick={handleToggle}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '6px 12px',
+          borderRadius: '24px',
+          border: `1.5px solid ${isForeign ? '#60a5fa' : dark ? 'rgba(255,255,255,0.2)' : '#E8E3D8'}`,
+          background: isForeign ? 'rgba(96,165,250,0.12)' : dark ? 'rgba(255,255,255,0.07)' : '#FFFFFF',
+          color: dark ? '#FFFFFF' : '#0A0A0B',
+          fontSize: '13px',
+          fontWeight: '600',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          userSelect: 'none',
+          outline: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <span style={{ fontSize: '16px', lineHeight: 1 }}>{currency.flag}</span>
+        <span>{currency.code}</span>
+        <span style={{
+          display: 'inline-block',
+          transition: 'transform 0.2s',
+          transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          opacity: 0.6,
+          fontSize: '10px',
+        }}>▼</span>
       </button>
 
+      {/* Dropdown — rendered with inline styles so Tailwind purging can't affect it */}
       {open && (
         <div
-          className="absolute top-full right-0 mt-2 w-52 bg-white border border-surface-border rounded-2xl shadow-2xl z-[200] overflow-hidden"
-          onClick={e => e.stopPropagation()}>
-          <div className="px-4 py-2.5 border-b border-surface-border bg-surface-subtle">
-            <p className="text-[10px] font-bold text-obsidian-500 uppercase tracking-wider">Display Currency</p>
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            right: 0,
+            width: '220px',
+            background: '#FFFFFF',
+            border: '1px solid #E8E3D8',
+            borderRadius: '20px',
+            boxShadow: '0 16px 48px rgba(10,10,11,0.18), 0 4px 12px rgba(10,10,11,0.08)',
+            zIndex: 99999,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            padding: '10px 16px',
+            background: '#F5F3EE',
+            borderBottom: '1px solid #E8E3D8',
+          }}>
+            <p style={{ margin: 0, fontSize: '10px', fontWeight: 700, color: '#6B6B6B', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Display Currency
+            </p>
           </div>
-          {CURRENCIES.map(c => (
-            <button
-              key={c.code}
-              onClick={(e) => { e.stopPropagation(); setCurrency(c); setOpen(false) }}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-subtle ${
-                currency.code === c.code ? 'bg-gold-50' : ''
-              }`}>
-              <span className="text-xl leading-none">{c.flag}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-obsidian-900">{c.code} <span className="text-obsidian-400 font-normal">{c.symbol}</span></p>
-                <p className="text-xs text-obsidian-400 truncate">{c.name}</p>
-              </div>
-              {currency.code === c.code && (
-                <div className="w-2 h-2 rounded-full bg-gold-500 flex-shrink-0" />
-              )}
-            </button>
-          ))}
-          <div className="px-4 py-2 border-t border-surface-border bg-surface-subtle">
-            <p className="text-[10px] text-obsidian-400">Approximate rates. Updated daily.</p>
+
+          {/* Options */}
+          {CURRENCIES.map(c => {
+            const isSelected = currency.code === c.code
+            return (
+              <button
+                key={c.code}
+                type="button"
+                onClick={(e) => handleSelect(e, c)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 16px',
+                  background: isSelected ? '#FDF8EC' : 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'background 0.15s',
+                  borderBottom: '1px solid #F5F3EE',
+                }}
+                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = '#F5F3EE' }}
+                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
+              >
+                <span style={{ fontSize: '22px', lineHeight: 1, flexShrink: 0 }}>{c.flag}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#0A0A0B' }}>
+                    {c.code} <span style={{ color: '#6B6B6B', fontWeight: 400 }}>{c.symbol}</span>
+                  </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#9A9A9A', marginTop: '1px' }}>{c.name}</p>
+                </div>
+                {isSelected && (
+                  <div style={{
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    background: '#C8A84B', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', flexShrink: 0
+                  }}>
+                    <span style={{ color: '#0A0A0B', fontSize: '10px', fontWeight: 900 }}>✓</span>
+                  </div>
+                )}
+              </button>
+            )
+          })}
+
+          {/* Footer */}
+          <div style={{
+            padding: '8px 16px',
+            background: '#F5F3EE',
+            borderTop: '1px solid #E8E3D8',
+          }}>
+            <p style={{ margin: 0, fontSize: '10px', color: '#9A9A9A' }}>
+              Approximate rates · Updated daily
+            </p>
           </div>
         </div>
       )}
@@ -141,42 +235,70 @@ export function DiasporaBanner() {
   if (!mounted || diasporaMode || dismissed) return null
 
   return (
-    <div className="bg-blue-600 text-white py-2.5 px-4 text-center text-sm flex items-center justify-center gap-3 flex-wrap relative">
-      <Globe className="w-4 h-4 flex-shrink-0" />
-      <span className="text-white/90">🌍 Viewing from abroad? See prices in your currency.</span>
-      <div className="flex items-center gap-2">
-        {['USD','GBP','EUR'].map(code => {
+    <div style={{
+      background: 'linear-gradient(90deg, #1d4ed8, #2563eb)',
+      color: '#fff',
+      padding: '10px 20px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '12px',
+      flexWrap: 'wrap',
+      position: 'relative',
+      fontSize: '13px',
+    }}>
+      <Globe style={{ width: 16, height: 16, flexShrink: 0 }} />
+      <span>🌍 Viewing from abroad? See prices in your currency.</span>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        {['USD', 'GBP', 'EUR'].map(code => {
           const c = CURRENCIES.find(x => x.code === code)!
           return (
             <button key={code} onClick={() => setCurrency(c)}
-              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-full text-xs font-bold transition-colors">
+              style={{
+                padding: '3px 10px', borderRadius: '20px',
+                background: 'rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              }}>
               {c.flag} {code}
             </button>
           )
         })}
       </div>
       <button onClick={() => setDismissed(true)}
-        className="absolute right-4 text-white/60 hover:text-white text-lg leading-none">×</button>
+        style={{
+          position: 'absolute', right: '16px',
+          background: 'none', border: 'none',
+          color: 'rgba(255,255,255,0.7)', fontSize: '20px',
+          cursor: 'pointer', lineHeight: 1, padding: '0 4px',
+        }}>×</button>
     </div>
   )
 }
 
 // ── Price Display ─────────────────────────────────────────────
-export function PriceDisplay({ naira, period, size = 'md' }: { naira: number; period?: string; size?: 'sm'|'md'|'lg' }) {
+export function PriceDisplay({
+  naira, period, size = 'md',
+}: {
+  naira: number; period?: string; size?: 'sm' | 'md' | 'lg'
+}) {
   const { convert, currency } = useDiaspora()
-  const periodMap: Record<string,string> = { YEARLY:'/yr', MONTHLY:'/mo', PER_NIGHT:'/night', TOTAL:'' }
-  const periodStr = period ? (periodMap[period] || '') : ''
-  const sizes = { sm:'text-base', md:'text-xl', lg:'text-3xl' }
+  const periodMap: Record<string, string> = {
+    YEARLY: '/yr', MONTHLY: '/mo', PER_NIGHT: '/night', TOTAL: '',
+  }
+  const sizeMap = { sm: '1rem', md: '1.25rem', lg: '1.875rem' }
 
   return (
     <div>
-      <span className={`font-display font-semibold text-obsidian-900 ${sizes[size]}`}>
+      <span style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: sizeMap[size], fontWeight: 600, color: '#0A0A0B' }}>
         {convert(naira)}
       </span>
-      {periodStr && <span className="text-obsidian-400 text-sm">{periodStr}</span>}
+      {period && periodMap[period] && (
+        <span style={{ color: '#6B6B6B', fontSize: '0.875rem' }}>{periodMap[period]}</span>
+      )}
       {currency.code !== 'NGN' && (
-        <div className="text-[10px] text-obsidian-400 mt-0.5">
-          {naira >= 1_000_000 ? `₦${(naira/1_000_000).toFixed(1)}M` : `₦${(naira/1_000).toFixed(0)}K`} NGN
+        <div style={{ fontSize: '10px', color: '#9A9A9A', marginTop: '2px' }}>
+          ≈ {naira >= 1_000_000 ? `₦${(naira / 1_000_000).toFixed(1)}M` : `₦${(naira / 1_000).toFixed(0)}K`} NGN
         </div>
       )}
     </div>

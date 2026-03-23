@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import Navbar from '@/components/layout/Navbar'
 import { DiasporaProvider, DiasporaBanner } from '@/components/features/DiasporaMode'
+import ThemeToggle from '@/components/features/ThemeToggle'
 import Footer from '@/components/layout/Footer'
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <Footer />
+          <ThemeToggle />
         </DiasporaProvider>
       </body>
     </html>

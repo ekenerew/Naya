@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import NotificationBell from '@/components/notifications/NotificationBell'
+import { CurrencySwitcher } from '@/components/features/DiasporaMode'
 import {
   Search, Menu, X, ChevronDown, Heart, LogIn,
   LogOut, User, LayoutDashboard, Plus, Bell, Settings
@@ -24,6 +25,8 @@ const navItems = [
       { label: 'Blog',                href: '/blog' },
       { label: 'Mortgage Calculator', href: '/tools/mortgage-calculator' },
       { label: 'Property Valuation',  href: '/tools/valuation' },
+      { label: 'Rent-to-Own Calculator', href: '/tools/rent-to-own' },
+      { label: 'Agent League',        href: '/agent-league' },
     ]
   }
 ]
@@ -154,7 +157,8 @@ export default function Navbar() {
                         <Heart className="w-4 h-4" />
                       </Link>
 
-                      <NotificationBell />
+                      <CurrencySwitcher dark />
+              <NotificationBell />
               {/* List property button for agents */}
                       {isAgent && (
                         <Link href="/portal/list"

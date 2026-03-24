@@ -171,3 +171,8 @@
 .dark-mode .bg-surface-bg { background: #0A0A0B !important; }
 .dark-mode .bg-surface-subtle { background: #141414 !important; }
 .dark-mode .border-surface-border { border-color: #252525 !important; }
+
+@keyframes fadeDropdown {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}

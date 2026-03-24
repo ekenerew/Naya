@@ -80,16 +80,12 @@ export function CurrencySwitcher({ dark = false }: { dark?: boolean }) {
     setOpen(true)
   }
 
-  // Close on outside click or scroll
+  // Close on scroll
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)
-    document.addEventListener('mousedown', close)
     window.addEventListener('scroll', close, true)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      window.removeEventListener('scroll', close, true)
-    }
+    return () => window.removeEventListener('scroll', close, true)
   }, [open])
 
   const handleBtnClick = (e: React.MouseEvent) => {
@@ -98,11 +94,7 @@ export function CurrencySwitcher({ dark = false }: { dark?: boolean }) {
     else openDropdown()
   }
 
-  const handleSelect = (e: React.MouseEvent, c: Currency) => {
-    e.stopPropagation()
-    setCurrency(c)
-    setOpen(false)
-  }
+
 
   return (
     <>
@@ -134,7 +126,7 @@ export function CurrencySwitcher({ dark = false }: { dark?: boolean }) {
         <>
           {/* Invisible backdrop to catch outside clicks */}
           <div
-            onClick={() => setOpen(false)}
+            onMouseDown={() => setOpen(false)}
             style={{ position:'fixed', inset:0, zIndex:99998 }}
           />
           <div
@@ -167,7 +159,7 @@ export function CurrencySwitcher({ dark = false }: { dark?: boolean }) {
                 <button
                   key={c.code}
                   type="button"
-                  onClick={e => handleSelect(e, c)}
+                  onMouseDown={e => { e.stopPropagation(); setCurrency(c); setOpen(false) }}
                   style={{
                     width: '100%',
                     display: 'flex',

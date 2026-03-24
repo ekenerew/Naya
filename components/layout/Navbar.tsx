@@ -16,6 +16,7 @@ const navLinks = [
   { label: 'Shortlet',   href: '/shortlet' },
   { label: 'Commercial', href: '/commercial' },
   { label: 'Agents',     href: '/agents' },
+  { label: 'Discover',   href: '/discover' },
 ]
 
 const moreLinks = [

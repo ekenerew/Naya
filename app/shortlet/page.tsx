@@ -1,726 +1,555 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  Search, X, Star, MapPin, Wifi, Zap, Wind, Tv, Car, Shield,
-  ChevronLeft, ChevronRight, MessageCircle, Phone, ArrowRight,
-  Users, Clock, CheckCircle2, Coffee, Waves, Dumbbell, ChefHat,
-  SlidersHorizontal, Calendar, TrendingUp
+  Search, MapPin, Star, Heart, Wifi, Zap, Wind, Tv, Car,
+  Shield, Waves, Dumbbell, Coffee, ChefHat, Users, Calendar,
+  SlidersHorizontal, Grid3X3, List, ArrowRight, Plus, Minus,
+  RefreshCw, Eye, X, CheckCircle2, Loader2, Home, Building2,
+  Hotel, Sparkles, Umbrella, Briefcase, TreePine, Crown,
+  ChevronLeft, ChevronRight, Filter, Clock
 } from 'lucide-react'
-import { properties, shortletListings, neighborhoods } from '@/lib/data'
-import type { Property } from '@/lib/types'
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function fmt(n: number) {
-  if (n >= 1000000) return `₦${(n / 1000000).toFixed(1)}M`
-  if (n >= 1000) return `₦${(n / 1000).toFixed(0)}K`
-  return `₦${n.toLocaleString()}`
+// ── Types ──────────────────────────────────────────────────────
+type Listing = {
+  id: string
+  title: string
+  description: string
+  propertyType: string
+  price: number
+  pricePeriod: string
+  bedrooms: number
+  bathrooms: number
+  sizeSqm?: number
+  neighborhood: string
+  address: string
+  amenities: string[]
+  furnishingStatus?: string
+  virtualTour: boolean
+  isFeatured: boolean
+  isVerified?: boolean
+  views: number
+  images: Array<{ url: string; isPrimary: boolean }>
+  agent?: {
+    id: string
+    badge: string
+    agencyName?: string
+    avgRating: number
+    reviewCount: number
+    rsspcStatus: string
+    user: { firstName: string; lastName: string; avatarUrl?: string }
+  }
 }
 
-// ── Config ─────────────────────────────────────────────────────────────────────
-const amenityIcons: Record<string, React.ReactNode> = {
-  'WiFi': <Wifi className="w-3.5 h-3.5" />,
-  'WiFi 100Mbps': <Wifi className="w-3.5 h-3.5" />,
-  'WiFi 200Mbps': <Wifi className="w-3.5 h-3.5" />,
-  'Generator': <Zap className="w-3.5 h-3.5" />,
-  'Air Conditioning': <Wind className="w-3.5 h-3.5" />,
-  'Smart TV': <Tv className="w-3.5 h-3.5" />,
-  'Parking': <Car className="w-3.5 h-3.5" />,
-  '24-hr Security': <Shield className="w-3.5 h-3.5" />,
-  'Pool Access': <Waves className="w-3.5 h-3.5" />,
-  'Private Pool': <Waves className="w-3.5 h-3.5" />,
-  'Gym': <Dumbbell className="w-3.5 h-3.5" />,
-  'Chef Service': <ChefHat className="w-3.5 h-3.5" />,
+// ── Config ─────────────────────────────────────────────────────
+const AMENITY_ICONS: Record<string, any> = {
+  'WiFi': Wifi, 'WiFi 100Mbps': Wifi, 'WiFi 200Mbps': Wifi,
+  'Generator': Zap, 'Air Conditioning': Wind, 'Smart TV': Tv,
+  'Parking': Car, '24-hr Security': Shield, 'Pool Access': Waves,
+  'Swimming Pool': Waves, 'Private Pool': Waves, 'Gym': Dumbbell,
+  'Breakfast': Coffee, 'Chef Service': ChefHat,
 }
 
-const categories = [
-  { value: 'all',       label: 'All Shortlets',    emoji: '🏠' },
-  { value: 'studio',    label: 'Studio',           emoji: '✨' },
-  { value: 'one_bed',   label: '1 Bedroom',        emoji: '🛏' },
-  { value: 'two_bed',   label: '2 Bedrooms',       emoji: '🛏' },
-  { value: 'three_bed', label: '3 Bedrooms',       emoji: '🛏' },
-  { value: 'four_plus', label: '4+ Bedrooms',      emoji: '🏡' },
-  { value: 'luxury',    label: 'Luxury & Villas',  emoji: '👑' },
-  { value: 'corporate', label: 'Corporate',        emoji: '💼' },
-  { value: 'family',    label: 'Family Stays',     emoji: '👨‍👩‍👧' },
+const CATEGORIES = [
+  { key: 'all',        label: 'All Stays',       Icon: Home,      desc: 'All shortlet properties' },
+  { key: 'private',    label: 'Private Homes',    Icon: Home,      desc: 'Entire homes & apartments' },
+  { key: 'serviced',   label: 'Service Apts',     Icon: Building2, desc: 'Hotel-style serviced apartments' },
+  { key: 'hotel',      label: 'Hotels & Suites',  Icon: Hotel,     desc: 'Hotels, suites & guesthouses' },
+  { key: 'luxury',     label: 'Luxury & Villas',  Icon: Crown,     desc: 'Premium luxury stays' },
+  { key: 'corporate',  label: 'Corporate Stays',  Icon: Briefcase, desc: 'Business-ready apartments' },
+  { key: 'waterfront', label: 'Waterfront',       Icon: Umbrella,  desc: 'Waterfront & riverside' },
+  { key: 'family',     label: 'Family Stays',     Icon: Users,     desc: 'Spacious family homes' },
 ]
 
-const priceFilters = [
-  { label: 'Under ₦30K/night',      min: 0,      max: 30000 },
-  { label: '₦30K – ₦75K/night',    min: 30000,  max: 75000 },
-  { label: '₦75K – ₦150K/night',   min: 75000,  max: 150000 },
-  { label: 'Above ₦150K/night',     min: 150000, max: Infinity },
+const NEIGHBORHOODS = [
+  'All Areas', 'GRA Phase 2', 'Old GRA', 'GRA Phase 1',
+  'Woji', 'Trans Amadi', 'Rumuola', 'Peter Odili Road',
+  'Eleme', 'D-Line', 'Stadium Road', 'Bonny Island',
 ]
 
-const sortOptions = [
-  { value: 'featured',   label: 'Featured First' },
-  { value: 'price_asc',  label: 'Price: Low to High' },
-  { value: 'price_desc', label: 'Price: High to Low' },
-  { value: 'popular',    label: 'Most Popular' },
-  { value: 'newest',     label: 'Newest' },
+const AMENITY_FILTERS = [
+  'WiFi', 'Generator', 'Air Conditioning', 'Swimming Pool',
+  'Gym', 'Parking', '24-hr Security', 'Smart TV', 'Breakfast', 'Chef Service',
 ]
 
-const experiences = [
-  { emoji: '💼', title: 'Business & Corporate', desc: 'High-speed WiFi, printing, video conferencing, and proximity to Trans Amadi and GRA business districts.', tag: 'corporate' },
-  { emoji: '👑', title: 'Luxury & Villas',       desc: 'Private pools, butler service, panoramic views, and bespoke furnishings for the most discerning guests.', tag: 'luxury' },
-  { emoji: '👨‍👩‍👧', title: 'Family Escapes',     desc: 'Spacious homes with children\'s play areas, BBQ terraces, multiple bedrooms, and full kitchens.', tag: 'family' },
-  { emoji: '🛢',  title: 'Oil & Gas Rotational', desc: 'Close to NLNG, SPDC, and Agip. Airport transfers, concierge, and flexible minimum stays.', tag: 'corporate' },
-  { emoji: '✈️', title: 'Diaspora Returnees',    desc: 'Feel at home. Nigerian cookware, fast WiFi, familiar neighbourhoods, and a local host experience.', tag: 'all' },
-  { emoji: '🌿', title: 'Extended Stays',        desc: 'Weekly and monthly discounts. Fully equipped kitchens, laundry, and a home-away-from-home setup.', tag: 'all' },
-]
+// ── Helpers ────────────────────────────────────────────────────
+const fmt = (n: number) =>
+  n >= 1_000_000 ? `₦${(n / 1_000_000).toFixed(1)}M` :
+  n >= 1_000 ? `₦${(n / 1_000).toFixed(0)}K` : `₦${n.toLocaleString()}`
 
-const testimonials = [
-  { name: 'Dr. Emeka Okonkwo', role: 'Consultant Surgeon, Lagos', rating: 5, text: 'I stay in Port Harcourt monthly for surgical rounds. Naya shortlets have completely replaced hotels for me — more space, better value, and the hosts are outstanding.', neighborhood: 'GRA Phase 2' },
-  { name: 'Sarah Adeyemi', role: 'Shell Nigeria, Aberdeen Expat', rating: 5, text: 'I have used 3 different Naya shortlets across my rotations. The verification system gives me confidence that what I see is exactly what I get.', neighborhood: 'Trans Amadi' },
-  { name: 'Chukwuemeka Eze', role: 'Diaspora Returnee, Houston', rating: 5, text: 'Visiting family in PH but needed my own space. The Heritage Villa in Old GRA was extraordinary — felt like a 5-star hotel but completely private.', neighborhood: 'Old GRA' },
-]
+// ── Image Carousel ─────────────────────────────────────────────
+function ImageCarousel({ images, title, isFeatured, isVerified, virtualTour }: {
+  images: Array<{ url: string }>
+  title: string; isFeatured: boolean; isVerified?: boolean; virtualTour: boolean
+}) {
+  const [idx, setIdx] = useState(0)
+  const [saved, setSaved] = useState(false)
+  const [imgErr, setImgErr] = useState(false)
+  const hasImages = images.length > 0 && !imgErr
 
-// ── Category matcher ───────────────────────────────────────────────────────────
-function matchCategory(p: Property, cat: string): boolean {
-  if (cat === 'all') return true
-  if (cat === 'studio') return p.propertyType === 'studio' || (p.bedrooms === 1 && p.sizeSqm < 60)
-  if (cat === 'one_bed') return p.bedrooms === 1
-  if (cat === 'two_bed') return p.bedrooms === 2
-  if (cat === 'three_bed') return p.bedrooms === 3
-  if (cat === 'four_plus') return p.bedrooms >= 4
-  if (cat === 'luxury') return p.price >= 100000 || ['penthouse', 'mansion'].includes(p.propertyType)
-  if (cat === 'corporate') return p.features.some(f => ['Work Desk', 'Video Conferencing', 'Printer', 'Concierge', 'Dedicated Concierge'].includes(f))
-  if (cat === 'family') return p.bedrooms >= 3 || p.features.some(f => f.toLowerCase().includes('family') || f.toLowerCase().includes('children'))
-  return true
-}
+  const gradients = [
+    'from-slate-800 to-slate-900',
+    'from-stone-800 to-stone-900',
+    'from-zinc-800 to-zinc-900',
+    'from-neutral-800 to-neutral-900',
+  ]
+  const grad = gradients[title.charCodeAt(0) % gradients.length]
 
-// ── Star Rating ───────────────────────────────────────────────────────────────
-function Stars({ n }: { n: number }) {
   return (
-    <div className="flex gap-0.5">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Star key={i} className={`w-3.5 h-3.5 ${i < n ? 'fill-gold-400 text-gold-400' : 'text-obsidian-200'}`} />
-      ))}
-        {/* ── WHY NAYA SHORTLETS ── */}
-        <section className="mt-20 mb-8">
-          <div className="text-center mb-12">
-            <span className="section-number">Why Choose Naya</span>
-            <h2 className="section-title">The Smarter Way to Book</h2>
-            <p className="section-desc mx-auto mt-4">Verified properties, transparent pricing, instant booking enquiries.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { icon:'🛡', title:'RSSPC Verified Hosts', desc:'Every agent and landlord is verified against the official RSSPC register. Your safety is our priority.' },
-              { icon:'💬', title:'Direct WhatsApp Contact', desc:'No middlemen. Contact hosts directly via WhatsApp for instant responses and custom arrangements.' },
-              { icon:'🔐', title:'Secure & Transparent', desc:'Clear pricing with no hidden fees. Full property details, real photos, and honest agent reviews.' },
-            ].map((f,i) => (
-              <div key={i} className="card p-6 text-center hover:shadow-lg transition-shadow">
-                <div className="text-5xl mb-4">{f.icon}</div>
-                <h3 className="font-semibold text-obsidian-900 mb-2">{f.title}</h3>
-                <p className="text-sm text-obsidian-500">{f.desc}</p>
-              </div>
+    <div className="relative aspect-[4/3] overflow-hidden rounded-t-2xl group">
+      {hasImages ? (
+        <img
+          src={images[idx]?.url}
+          alt={title}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          onError={() => setImgErr(true)}
+        />
+      ) : (
+        <div className={`w-full h-full bg-gradient-to-br ${grad} flex items-center justify-center`}>
+          <Home className="w-12 h-12 text-white/20" />
+        </div>
+      )}
+
+      {/* Navigation arrows */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={e => { e.preventDefault(); setIdx(i => Math.max(0, i - 1)) }}
+            className={`absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${idx === 0 ? 'invisible' : ''}`}>
+            <ChevronLeft className="w-4 h-4 text-obsidian-900" />
+          </button>
+          <button
+            onClick={e => { e.preventDefault(); setIdx(i => Math.min(images.length - 1, i + 1)) }}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${idx === images.length - 1 ? 'invisible' : ''}`}>
+            <ChevronRight className="w-4 h-4 text-obsidian-900" />
+          </button>
+          {/* Dots */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.slice(0, 5).map((_, i) => (
+              <div key={i} className={`rounded-full bg-white transition-all ${i === idx ? 'w-3 h-1.5' : 'w-1.5 h-1.5 opacity-60'}`} />
             ))}
           </div>
-        </section>
+        </>
+      )}
 
-        {/* ── LIST YOUR PROPERTY CTA ── */}
-        <section className="mt-8 mb-8">
-          <div className="bg-gradient-to-r from-obsidian-900 to-obsidian-800 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <h3 className="font-display text-2xl font-light text-white mb-2">Have a property to list?</h3>
-              <p className="text-white/50 text-sm">Join hosts earning from their properties on Naya.</p>
-            </div>
-            <a href="/portal/list" className="btn-primary gap-2 whitespace-nowrap flex-shrink-0">
-              List Your Shortlet
-            </a>
-          </div>
-        </section>
+      {/* Badges */}
+      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+        {isFeatured && (
+          <span className="px-2.5 py-1 bg-gold-500 text-obsidian-900 text-[10px] font-black rounded-full shadow">
+            ✦ FEATURED
+          </span>
+        )}
+        {isVerified && (
+          <span className="px-2.5 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full shadow">
+            ✓ VERIFIED
+          </span>
+        )}
+        {virtualTour && (
+          <span className="px-2.5 py-1 bg-blue-500 text-white text-[10px] font-bold rounded-full shadow">
+            360° TOUR
+          </span>
+        )}
+      </div>
 
+      {/* Save button */}
+      <button
+        onClick={e => { e.preventDefault(); setSaved(p => !p) }}
+        className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 backdrop-blur shadow flex items-center justify-center transition-transform hover:scale-110">
+        <Heart className={`w-4 h-4 transition-colors ${saved ? 'fill-rose-500 text-rose-500' : 'text-obsidian-500'}`} />
+      </button>
+
+      {/* View count */}
+      {/* Views */}
+      <div className="absolute bottom-3 right-3 flex items-center gap-1 px-2 py-1 bg-black/50 backdrop-blur rounded-full text-white text-[10px]">
+        <Eye className="w-3 h-3" />
+        {/* show formatted */}
+      </div>
     </div>
   )
 }
 
-// ── Shortlet Card ─────────────────────────────────────────────────────────────
-function ShortletCard({ p, featured = false }: { p: Property; featured?: boolean }) {
-  const nightlyPrice = p.pricePeriod === 'per_night' ? p.price : Math.round(p.price / 365)
-  const gradients: Record<string, string> = {
-    penthouse: 'from-violet-950 via-purple-900 to-indigo-950',
-    mansion: 'from-amber-950 via-amber-900 to-stone-950',
-    apartment: 'from-slate-900 via-slate-800 to-zinc-900',
-    duplex: 'from-emerald-950 via-emerald-900 to-teal-950',
-    studio: 'from-fuchsia-950 via-purple-900 to-violet-950',
-    self_contained: 'from-teal-950 via-teal-900 to-cyan-950',
-    three_bedroom_flat: 'from-indigo-950 via-blue-900 to-blue-950',
-  }
-  const gradient = gradients[p.propertyType] || 'from-slate-900 to-zinc-900'
-  const emoji = { penthouse: '🌆', mansion: '🏰', apartment: '🏢', duplex: '🏡', studio: '✨', self_contained: '🔑', three_bedroom_flat: '🏠' }[p.propertyType] || '🛎'
+// ── Listing Card ───────────────────────────────────────────────
+function ShortletCard({ listing, view }: { listing: Listing; view: 'grid' | 'list' }) {
+  const rating  = listing.agent?.avgRating || 0
+  const reviews = listing.agent?.reviewCount || 0
+  const amenityIcons = listing.amenities.slice(0, 4).map(a => ({ label: a, Icon: AMENITY_ICONS[a] })).filter(a => a.Icon)
 
-  // Fake star rating based on price
-  const stars = p.price >= 150000 ? 5 : p.price >= 75000 ? 5 : p.price >= 40000 ? 4 : 4
-
-  return (
-    <div className={`card overflow-hidden group hover:border-gold-300 transition-all duration-300 ${featured ? 'ring-2 ring-gold-500/30' : ''}`}>
-      {/* Image */}
-      <div className={`relative bg-gradient-to-br ${gradient} overflow-hidden`} style={{ height: featured ? '220px' : '180px' }}>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-6xl opacity-30">{emoji}</span>
+  if (view === 'list') {
+    return (
+      <Link href={`/properties/${listing.id}`}
+        className="card flex overflow-hidden hover:shadow-xl transition-all duration-300 group">
+        <div className="relative w-56 flex-shrink-0">
+          {listing.images[0]?.url ? (
+            <img src={listing.images[0].url} alt={listing.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+              <Home className="w-8 h-8 text-white/20" />
+            </div>
+          )}
+          {listing.isFeatured && (
+            <span className="absolute top-2 left-2 px-2 py-0.5 bg-gold-500 text-obsidian-900 text-[9px] font-black rounded-full">✦ FEATURED</span>
+          )}
         </div>
-        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-20" />
-
-        {/* Overlay badges */}
-        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-          {p.isFeatured && <span className="badge-gold text-[10px]">⭐ Featured</span>}
-          {p.isNew && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-white font-medium">New</span>}
-          {p.virtualTour && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/80 text-white font-medium backdrop-blur-sm">360° Tour</span>}
-        </div>
-
-        {/* Price badge */}
-        <div className="absolute bottom-3 right-3">
-          <div className="bg-obsidian-900/80 backdrop-blur-sm rounded-xl px-3 py-2 border border-gold-500/30">
-            <div className="font-display text-lg font-medium text-gold-400">{fmt(nightlyPrice)}</div>
-            <div className="text-[10px] text-white/50 text-center">per night</div>
+        <div className="flex-1 p-5 flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-start justify-between gap-3 mb-1.5">
+              <p className="text-xs text-obsidian-400 flex items-center gap-1">
+                <MapPin className="w-3 h-3" />{listing.neighborhood}, Port Harcourt
+              </p>
+              {reviews > 0 && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <Star className="w-3.5 h-3.5 fill-obsidian-900 text-obsidian-900" />
+                  <span className="text-xs font-bold text-obsidian-900">{rating.toFixed(1)}</span>
+                  <span className="text-xs text-obsidian-400">({reviews})</span>
+                </div>
+              )}
+            </div>
+            <h3 className="font-semibold text-obsidian-900 line-clamp-1 group-hover:text-gold-600 transition-colors mb-1">
+              {listing.title}
+            </h3>
+            <p className="text-xs text-obsidian-400 line-clamp-2 mb-3">{listing.description}</p>
+            <div className="flex flex-wrap gap-2">
+              {amenityIcons.map((a, i) => (
+                <span key={i} className="flex items-center gap-1 text-[10px] text-obsidian-500 bg-surface-subtle px-2 py-1 rounded-lg">
+                  <a.Icon className="w-3 h-3" />{a.label}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-surface-border">
+            <div>
+              <span className="font-display text-xl font-semibold text-obsidian-900">{fmt(listing.price)}</span>
+              <span className="text-obsidian-400 text-sm"> / night</span>
+            </div>
+            <span className="px-3 py-1.5 bg-obsidian-900 text-white rounded-xl text-xs font-semibold">
+              View →
+            </span>
           </div>
         </div>
+      </Link>
+    )
+  }
 
-        {/* Star rating */}
-        <div className="absolute bottom-3 left-3">
-          <Stars n={stars} />
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="p-4">
-        <Link href={`/properties/${p.slug}`}>
-          <h3 className="font-display text-base font-medium text-obsidian-900 leading-snug mb-1 group-hover:text-gold-600 transition-colors line-clamp-1">{p.title}</h3>
-        </Link>
-
-        <div className="flex items-center gap-1 text-xs text-obsidian-400 mb-3">
-          <MapPin className="w-3 h-3 text-gold-500 flex-shrink-0" />
-          {p.neighborhood}, Port Harcourt
-        </div>
-
-        {/* Specs row */}
-        <div className="flex gap-3 mb-3 text-xs text-obsidian-500">
-          {p.bedrooms > 0 && <span className="flex items-center gap-1"><Users className="w-3 h-3" />{p.bedrooms} bed{p.bedrooms > 1 ? 's' : ''}</span>}
-          {p.bathrooms > 0 && <span>{p.bathrooms} bath{p.bathrooms > 1 ? 's' : ''}</span>}
-          <span>{p.sizeSqm} sqm</span>
-        </div>
-
-        {/* Top amenities */}
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {p.amenities.slice(0, 4).map((a, i) => (
-            <span key={i} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-surface-subtle text-obsidian-500 border border-surface-border">
-              {amenityIcons[a] || null}{a}
-            </span>
-          ))}
-          {p.amenities.length > 4 && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-subtle text-obsidian-400">+{p.amenities.length - 4}</span>
+  return (
+    <Link href={`/properties/${listing.id}`} className="block group cursor-pointer">
+      <ImageCarousel
+        images={listing.images}
+        title={listing.title}
+        isFeatured={listing.isFeatured}
+        isVerified={listing.isVerified}
+        virtualTour={listing.virtualTour}
+      />
+      <div className="pt-3 pb-1">
+        <div className="flex items-start justify-between gap-2 mb-0.5">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-obsidian-400 flex items-center gap-1 mb-0.5">
+              <MapPin className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{listing.neighborhood}</span>
+            </p>
+            <h3 className="text-sm font-semibold text-obsidian-900 line-clamp-1 group-hover:text-gold-600 transition-colors">
+              {listing.title}
+            </h3>
+          </div>
+          {reviews > 0 && (
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <Star className="w-3.5 h-3.5 fill-obsidian-900 text-obsidian-900" />
+              <span className="text-xs font-bold text-obsidian-900">{rating.toFixed(1)}</span>
+            </div>
           )}
         </div>
 
-        {/* Min stay + CTA */}
-        <div className="flex items-center justify-between pt-3 border-t border-surface-border">
-          <div className="flex items-center gap-1 text-xs text-obsidian-400">
-            <Clock className="w-3 h-3" /> Min. 1 night
-          </div>
-          <div className="flex gap-2">
-            <a href="https://wa.me/2348168117004" target="_blank" rel="noopener noreferrer"
-              className="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center hover:bg-emerald-600 transition-colors">
-              <MessageCircle className="w-4 h-4 text-white" />
-            </a>
-            <Link href={`/properties/${p.slug}`} className="btn-primary btn-sm px-3">
-              Book <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+        {/* Meta row */}
+        <p className="text-xs text-obsidian-400 mb-2">
+          {[
+            listing.bedrooms > 0 && `${listing.bedrooms} bed${listing.bedrooms > 1 ? 's' : ''}`,
+            listing.bathrooms > 0 && `${listing.bathrooms} bath${listing.bathrooms > 1 ? 's' : ''}`,
+            listing.furnishingStatus && listing.furnishingStatus.toLowerCase(),
+          ].filter(Boolean).join(' · ')}
+        </p>
+
+        {/* Key amenities */}
+        <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+          {amenityIcons.slice(0, 3).map((a, i) => (
+            <span key={i} className="flex items-center gap-1 text-[10px] text-obsidian-500">
+              <a.Icon className="w-3 h-3" />{a.label}
+            </span>
+          ))}
+        </div>
+
+        {/* Price */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-obsidian-900">
+            <span className="font-semibold font-display text-base">{fmt(listing.price)}</span>
+            <span className="text-obsidian-400"> / night</span>
+          </p>
+          {reviews > 0 && <p className="text-[10px] text-obsidian-400">{reviews} review{reviews > 1 ? 's' : ''}</p>}
         </div>
       </div>
-        {/* ── WHY NAYA SHORTLETS ── */}
-        <section className="mt-20 mb-8">
-          <div className="text-center mb-12">
-            <span className="section-number">Why Choose Naya</span>
-            <h2 className="section-title">The Smarter Way to Book</h2>
-            <p className="section-desc mx-auto mt-4">Verified properties, transparent pricing, instant booking enquiries.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { icon:'🛡', title:'RSSPC Verified Hosts', desc:'Every agent and landlord is verified against the official RSSPC register. Your safety is our priority.' },
-              { icon:'💬', title:'Direct WhatsApp Contact', desc:'No middlemen. Contact hosts directly via WhatsApp for instant responses and custom arrangements.' },
-              { icon:'🔐', title:'Secure & Transparent', desc:'Clear pricing with no hidden fees. Full property details, real photos, and honest agent reviews.' },
-            ].map((f,i) => (
-              <div key={i} className="card p-6 text-center hover:shadow-lg transition-shadow">
-                <div className="text-5xl mb-4">{f.icon}</div>
-                <h3 className="font-semibold text-obsidian-900 mb-2">{f.title}</h3>
-                <p className="text-sm text-obsidian-500">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── LIST YOUR PROPERTY CTA ── */}
-        <section className="mt-8 mb-8">
-          <div className="bg-gradient-to-r from-obsidian-900 to-obsidian-800 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <h3 className="font-display text-2xl font-light text-white mb-2">Have a property to list?</h3>
-              <p className="text-white/50 text-sm">Join hosts earning from their properties on Naya.</p>
-            </div>
-            <a href="/portal/list" className="btn-primary gap-2 whitespace-nowrap flex-shrink-0">
-              List Your Shortlet
-            </a>
-          </div>
-        </section>
-
-    </div>
+    </Link>
   )
 }
 
-// ── Testimonial Card ──────────────────────────────────────────────────────────
-function TestimonialCard({ t }: { t: typeof testimonials[0] }) {
+// ── Empty State ────────────────────────────────────────────────
+function EmptyState({ onReset }: { onReset: () => void }) {
   return (
-    <div className="card p-6">
-      <Stars n={t.rating} />
-      <p className="text-obsidian-500 text-sm leading-relaxed my-4 italic">"{t.text}"</p>
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gold-500 to-gold-300 flex items-center justify-center flex-shrink-0">
-          <span className="font-display text-sm font-medium text-obsidian-900">{t.name.charAt(0)}</span>
-        </div>
-        <div>
-          <div className="font-semibold text-obsidian-900 text-sm">{t.name}</div>
-          <div className="text-xs text-obsidian-400">{t.role}</div>
-          <div className="flex items-center gap-1 text-xs text-gold-500 mt-0.5">
-            <MapPin className="w-2.5 h-2.5" />{t.neighborhood}
-          </div>
-        </div>
+    <div className="col-span-full py-24 flex flex-col items-center text-center">
+      <div className="w-24 h-24 rounded-3xl bg-surface-subtle flex items-center justify-center mb-5">
+        <Search className="w-10 h-10 text-obsidian-200" />
       </div>
-        {/* ── WHY NAYA SHORTLETS ── */}
-        <section className="mt-20 mb-8">
-          <div className="text-center mb-12">
-            <span className="section-number">Why Choose Naya</span>
-            <h2 className="section-title">The Smarter Way to Book</h2>
-            <p className="section-desc mx-auto mt-4">Verified properties, transparent pricing, instant booking enquiries.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { icon:'🛡', title:'RSSPC Verified Hosts', desc:'Every agent and landlord is verified against the official RSSPC register. Your safety is our priority.' },
-              { icon:'💬', title:'Direct WhatsApp Contact', desc:'No middlemen. Contact hosts directly via WhatsApp for instant responses and custom arrangements.' },
-              { icon:'🔐', title:'Secure & Transparent', desc:'Clear pricing with no hidden fees. Full property details, real photos, and honest agent reviews.' },
-            ].map((f,i) => (
-              <div key={i} className="card p-6 text-center hover:shadow-lg transition-shadow">
-                <div className="text-5xl mb-4">{f.icon}</div>
-                <h3 className="font-semibold text-obsidian-900 mb-2">{f.title}</h3>
-                <p className="text-sm text-obsidian-500">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── LIST YOUR PROPERTY CTA ── */}
-        <section className="mt-8 mb-8">
-          <div className="bg-gradient-to-r from-obsidian-900 to-obsidian-800 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <h3 className="font-display text-2xl font-light text-white mb-2">Have a property to list?</h3>
-              <p className="text-white/50 text-sm">Join hosts earning from their properties on Naya.</p>
-            </div>
-            <a href="/portal/list" className="btn-primary gap-2 whitespace-nowrap flex-shrink-0">
-              List Your Shortlet
-            </a>
-          </div>
-        </section>
-
+      <h3 className="font-display text-2xl font-medium text-obsidian-900 mb-2">No shortlets found</h3>
+      <p className="text-obsidian-400 text-sm mb-6 max-w-sm">
+        No shortlet listings yet in Port Harcourt. Be the first to list your property.
+      </p>
+      <div className="flex gap-3">
+        <button onClick={onReset} className="btn-secondary gap-2">
+          <RefreshCw className="w-4 h-4" />Clear filters
+        </button>
+        <Link href="/portal/list" className="btn-primary gap-2">
+          <Plus className="w-4 h-4" />List Your Property
+        </Link>
+      </div>
     </div>
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main Page ──────────────────────────────────────────────────
 export default function ShortletPage() {
-  const [searchQuery, setSearchQuery]   = useState('')
-  const [activeCategory, setActiveCategory] = useState('all')
-  const [selectedArea, setSelectedArea] = useState('all')
-  const [priceFilter, setPriceFilter]   = useState<typeof priceFilters[0] | null>(null)
-  const [minBeds, setMinBeds]           = useState(0)
-  const [sortBy, setSortBy]             = useState('featured')
-  const [verifiedOnly, setVerifiedOnly] = useState(false)
-  const [poolOnly, setPoolOnly]         = useState(false)
-  const [heroSlide, setHeroSlide]       = useState(0)
+  const [listings, setListings]   = useState<Listing[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [total, setTotal]         = useState(0)
+  const [view, setView]           = useState<'grid' | 'list'>('grid')
+  const [category, setCategory]   = useState('all')
+  const [showFilters, setShowFilters] = useState(false)
+  const [page, setPage]           = useState(1)
 
-  const allShortlets: Property[] = [
-    ...properties.filter(p => p.listingType === 'shortlet'),
-    ...shortletListings,
-  ]
+  // Filters
+  const [search, setSearch]           = useState('')
+  const [area, setArea]               = useState('All Areas')
+  const [minBeds, setMinBeds]         = useState(0)
+  const [sortBy, setSortBy]           = useState('featured')
+  const [checkIn, setCheckIn]         = useState('')
+  const [checkOut, setCheckOut]       = useState('')
+  const [guests, setGuests]           = useState(1)
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([])
 
-  const featured = allShortlets.filter(p => p.isFeatured)
+  const nights = checkIn && checkOut
+    ? Math.max(1, Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000))
+    : null
 
-  const filtered = useMemo(() => {
-    let r = allShortlets.filter(p => {
-      if (searchQuery && !p.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase())) return false
-      if (!matchCategory(p, activeCategory)) return false
-      if (selectedArea !== 'all' && p.neighborhood !== selectedArea) return false
-      if (priceFilter) {
-        const nightly = p.pricePeriod === 'per_night' ? p.price : Math.round(p.price / 365)
-        if (nightly < priceFilter.min || nightly > priceFilter.max) return false
-      }
-      if (minBeds > 0 && p.bedrooms < minBeds) return false
-      if (verifiedOnly && !p.isVerified) return false
-      if (poolOnly && !p.amenities.some(a => a.toLowerCase().includes('pool'))) return false
-      return true
-    })
-    switch (sortBy) {
-      case 'price_asc':  r = [...r].sort((a, b) => a.price - b.price); break
-      case 'price_desc': r = [...r].sort((a, b) => b.price - a.price); break
-      case 'popular':    r = [...r].sort((a, b) => b.views - a.views); break
-      case 'newest':     r = [...r].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); break
-      default:           r = [...r].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0))
-    }
-    return r
-  }, [searchQuery, activeCategory, selectedArea, priceFilter, minBeds, sortBy, verifiedOnly, poolOnly])
+  const fetchListings = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ type: 'SHORTLET', sort: sortBy, page: page.toString(), limit: '24' })
+      if (area !== 'All Areas') params.set('neighborhood', area)
+      if (minBeds > 0) params.set('minBeds', minBeds.toString())
+      if (search) params.set('q', search)
+      const res  = await fetch(`/api/listings?${params}`)
+      const data = await res.json()
+      setListings(data.data?.listings || [])
+      setTotal(data.data?.total || 0)
+    } catch {
+      setListings([]); setTotal(0)
+    } finally { setLoading(false) }
+  }, [area, minBeds, search, sortBy, page])
 
-  const activeFilters = [activeCategory !== 'all', selectedArea !== 'all', priceFilter !== null, minBeds > 0, verifiedOnly, poolOnly].filter(Boolean).length
+  useEffect(() => { fetchListings() }, [fetchListings])
 
-  const clearAll = () => {
-    setActiveCategory('all'); setSelectedArea('all'); setPriceFilter(null)
-    setMinBeds(0); setVerifiedOnly(false); setPoolOnly(false); setSearchQuery('')
+  const toggleAmenity = (a: string) =>
+    setSelectedAmenities(p => p.includes(a) ? p.filter(x => x !== a) : [...p, a])
+
+  const resetFilters = () => {
+    setCategory('all'); setSearch(''); setArea('All Areas')
+    setMinBeds(0); setSelectedAmenities([]); setSortBy('featured')
+    setCheckIn(''); setCheckOut(''); setGuests(1); setPage(1)
   }
 
+  // Client-side category + amenity filter
+  const filtered = listings.filter(l => {
+    if (selectedAmenities.length > 0 && !selectedAmenities.every(a => l.amenities.includes(a))) return false
+    if (category !== 'all') {
+      if (category === 'luxury'    && !l.isFeatured && !['PENTHOUSE','MANSION'].includes(l.propertyType)) return false
+      if (category === 'serviced'  && !l.propertyType.includes('SHORTLET')) return false
+      if (category === 'hotel'     && !['HOTEL','SUITE','STUDIO'].includes(l.propertyType)) return false
+    }
+    return true
+  })
+
+  const activeFilters = [
+    area !== 'All Areas', minBeds > 0, selectedAmenities.length > 0, category !== 'all', checkIn
+  ].filter(Boolean).length
+
   return (
-    <div className="min-h-screen bg-surface-bg">
+    <div className="min-h-screen bg-white">
 
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="relative bg-obsidian-900 overflow-hidden min-h-[600px] flex items-center">
-        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-30" />
-        <div className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full bg-gold-500/10 blur-[150px]" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full bg-gold-500/5 blur-[100px]" />
+      {/* ── HERO ─────────────────────────────────────────────────── */}
+      <section className="relative bg-obsidian-900 overflow-hidden">
+        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-25" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-obsidian-900/80" />
 
-        <div className="page-container relative z-10 py-20">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <div>
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold-500/10 border border-gold-500/25 mb-6">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gold-400 animate-pulse" />
-                  <span className="font-mono text-xs text-gold-400 tracking-widest uppercase">Shortlets · Port Harcourt</span>
-                </div>
-                <h1 className="font-display text-5xl md:text-6xl font-light text-white leading-[0.95] tracking-tight mb-6">
-                  Hotel Quality.<br />
-                  <span className="gold-text">Home Comfort.</span><br />
-                  <span className="text-white/50">Your Price.</span>
-                </h1>
-                <p className="text-white/40 text-lg font-light leading-relaxed mb-8 max-w-md">
-                  Fully furnished, verified shortlet apartments across Port Harcourt. From solo studio stays to luxury villa retreats.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 mb-8">
-                  <div className="flex-1 flex items-center gap-3 bg-white rounded-2xl px-4 py-3 shadow-gold">
-                    <Search className="w-5 h-5 text-obsidian-300 flex-shrink-0" />
-                    <input className="flex-1 bg-transparent text-obsidian-900 placeholder-obsidian-300 outline-none text-sm"
-                      placeholder="Search shortlets..."
-                      value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        {/* Decorative blobs */}
+        <div className="absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full bg-gold-500/6 blur-[120px] pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full bg-gold-500/4 blur-[80px] pointer-events-none" />
+
+        <div className="relative z-10 page-container pt-16 pb-12">
+          <div className="max-w-3xl mx-auto text-center">
+
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold-500/15 border border-gold-500/25 text-gold-400 text-sm font-semibold mb-6">
+              <Sparkles className="w-4 h-4" />
+              Shortlets & Serviced Stays in Port Harcourt
+            </div>
+
+            <h1 className="font-display text-5xl md:text-6xl font-light text-white leading-tight mb-4">
+              Your Perfect<br />
+              <span className="gold-text">Home Away From Home</span>
+            </h1>
+            <p className="text-white/50 text-lg mb-10 max-w-xl mx-auto">
+              Private residences, serviced apartments, hotels and luxury villas.
+              Book by the night, week, or month — no long-term commitment.
+            </p>
+
+            {/* ── Airbnb-style search bar ── */}
+            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+              <div className="flex flex-col md:flex-row">
+                {/* Location */}
+                <div className="flex items-center gap-3 px-5 py-4 flex-1 border-b md:border-b-0 md:border-r border-surface-border">
+                  <MapPin className="w-5 h-5 text-gold-500 flex-shrink-0" />
+                  <div className="flex-1 text-left">
+                    <p className="text-[10px] font-bold text-obsidian-500 uppercase tracking-wider">Where</p>
+                    <select
+                      value={area}
+                      onChange={e => setArea(e.target.value)}
+                      className="w-full text-sm font-semibold text-obsidian-900 bg-transparent outline-none cursor-pointer">
+                      {NEIGHBORHOODS.map(n => <option key={n}>{n}</option>)}
+                    </select>
                   </div>
-                  <button className="btn-primary px-6">Search</button>
                 </div>
-                <div className="flex items-center gap-6 text-white/40 text-sm">
-                  {[`${allShortlets.length} Properties`, 'Verified Hosts', 'Instant Booking'].map((item, i) => (
-                    <span key={i} className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-gold-500" />{item}
-                    </span>
-                  ))}
+
+                {/* Check in */}
+                <div className="flex items-center gap-3 px-5 py-4 border-b md:border-b-0 md:border-r border-surface-border">
+                  <Calendar className="w-5 h-5 text-gold-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold text-obsidian-500 uppercase tracking-wider">Check In</p>
+                    <input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)}
+                      className="text-sm font-semibold text-obsidian-900 bg-transparent outline-none cursor-pointer" />
+                  </div>
                 </div>
+
+                {/* Check out */}
+                <div className="flex items-center gap-3 px-5 py-4 border-b md:border-b-0 md:border-r border-surface-border">
+                  <Calendar className="w-5 h-5 text-gold-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold text-obsidian-500 uppercase tracking-wider">Check Out</p>
+                    <input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)}
+                      className="text-sm font-semibold text-obsidian-900 bg-transparent outline-none cursor-pointer" />
+                  </div>
+                </div>
+
+                {/* Guests */}
+                <div className="flex items-center gap-3 px-5 py-4 border-b md:border-b-0 md:border-r border-surface-border">
+                  <Users className="w-5 h-5 text-gold-500 flex-shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold text-obsidian-500 uppercase tracking-wider">Guests</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <button type="button" onClick={() => setGuests(g => Math.max(1, g - 1))}
+                        className="w-6 h-6 rounded-full border border-obsidian-200 flex items-center justify-center hover:border-gold-400 transition-colors">
+                        <Minus className="w-3 h-3 text-obsidian-600" />
+                      </button>
+                      <span className="text-sm font-bold text-obsidian-900 w-5 text-center">{guests}</span>
+                      <button type="button" onClick={() => setGuests(g => g + 1)}
+                        className="w-6 h-6 rounded-full border border-obsidian-200 flex items-center justify-center hover:border-gold-400 transition-colors">
+                        <Plus className="w-3 h-3 text-obsidian-600" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search button */}
+                <button onClick={fetchListings}
+                  className="flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-gold-500 to-gold-400 hover:from-gold-400 hover:to-gold-300 text-obsidian-900 font-bold text-sm transition-all">
+                  <Search className="w-5 h-5" />
+                  <span>Search</span>
+                </button>
               </div>
 
-              {/* Featured property preview cards */}
-              <div className="hidden lg:block relative">
-                <div className="space-y-3">
-                  {featured.slice(0, 3).map((p, i) => {
-                    const nightlyPrice = p.pricePeriod === 'per_night' ? p.price : Math.round(p.price / 365)
-                    return (
-                      <div key={p.id} className={`flex items-center gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 transition-all ${i === 0 ? 'border-gold-500/30 bg-gold-500/5' : ''}`}>
-                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-gold-500 to-gold-300 flex items-center justify-center text-2xl flex-shrink-0">
-                          {['🏰', '🌆', '🏡'][i]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-medium truncate">{p.title}</div>
-                          <div className="text-white/40 text-xs">{p.neighborhood} · {p.bedrooms} bed{p.bedrooms > 1 ? 's' : ''}</div>
-                          <Stars n={5} />
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="font-display text-lg text-gold-400">{fmt(nightlyPrice)}</div>
-                          <div className="text-white/30 text-xs">/night</div>
-                        </div>
-                      </div>
-                    )
-                  })}
+              {/* Nights calculation */}
+              {nights && (
+                <div className="px-5 py-2 bg-gold-50 border-t border-gold-100 text-xs text-gold-700 font-medium text-center">
+                  📅 {nights} night{nights > 1 ? 's' : ''} selected
                 </div>
-                <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center shadow-gold">
-                  <ArrowRight className="w-4 h-4 text-obsidian-900" />
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
-
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 50L1440 50L1440 15C1200 50 960 0 720 15C480 30 240 0 0 15L0 50Z" fill="#FAFAF8"/>
-          </svg>
-        </div>
       </section>
 
-      {/* ── TRUST STRIP ─────────────────────────────────────────────────── */}
-      <section className="bg-surface-bg border-b border-surface-border">
-        <div className="page-container py-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { icon: Shield, label: 'All Hosts Verified', sub: 'RSSPC + ID checked', color: 'text-emerald-500', bg: 'bg-emerald-50' },
-              { icon: CheckCircle2, label: 'What You See = What You Get', sub: 'Photos are real, listings are live', color: 'text-blue-500', bg: 'bg-blue-50' },
-              { icon: Clock, label: 'Instant Confirmation', sub: 'Book via WhatsApp in minutes', color: 'text-gold-600', bg: 'bg-gold-50' },
-              { icon: TrendingUp, label: 'Best Price Guarantee', sub: 'No hidden fees. Transparent pricing', color: 'text-purple-500', bg: 'bg-purple-50' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center flex-shrink-0`}>
-                  <item.icon className={`w-5 h-5 ${item.color}`} />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-obsidian-900">{item.label}</div>
-                  <div className="text-[10px] text-obsidian-400">{item.sub}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── EXPERIENCE CATEGORIES ────────────────────────────────────────── */}
-      <section className="section-padding bg-surface-bg">
+      {/* ── PROPERTY TYPE CARDS ───────────────────────────────────── */}
+      <section className="bg-surface-bg py-10 border-b border-surface-border">
         <div className="page-container">
-          <div className="text-center mb-10">
-            <span className="section-number">Find Your Stay</span>
-            <h2 className="section-title">Curated for Every Guest</h2>
+          <div className="text-center mb-6">
+            <h2 className="font-display text-2xl font-medium text-obsidian-900 mb-1">
+              Choose Your Type of Stay
+            </h2>
+            <p className="text-obsidian-400 text-sm">Private homes, serviced apartments, hotels and more</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-            {experiences.map((e, i) => (
-              <button key={i} onClick={() => setActiveCategory(e.tag)}
-                className="card p-4 text-center hover:border-gold-300 transition-all group">
-                <div className="text-3xl mb-2">{e.emoji}</div>
-                <div className="font-semibold text-obsidian-900 text-xs mb-1">{e.title}</div>
-                <div className="text-[10px] text-obsidian-400 leading-relaxed hidden md:block">{e.desc}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => setCategory(cat.key)}
+                className={`flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all group ${
+                  category === cat.key
+                    ? 'border-obsidian-900 bg-obsidian-900 text-white shadow-lg scale-105'
+                    : 'border-surface-border bg-white text-obsidian-500 hover:border-obsidian-300 hover:text-obsidian-900'
+                }`}>
+                <cat.Icon className={`w-6 h-6 ${category === cat.key ? 'text-gold-400' : 'text-obsidian-400 group-hover:text-obsidian-600'}`} />
+                <span className="text-xs font-semibold leading-tight text-center">{cat.label}</span>
               </button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── MAIN LISTINGS ────────────────────────────────────────────────── */}
-      <section className="pb-20 bg-surface-bg">
+      {/* ── HOST TYPES BANNER ────────────────────────────────────────── */}
+      <section className="bg-white py-8 border-b border-surface-border">
         <div className="page-container">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-
-            {/* ── SIDEBAR ────────────────────────────────────────────────── */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-24 space-y-5">
-
-                {/* Filters */}
-                <div className="card p-5">
-                  <div className="flex items-center justify-between mb-5">
-                    <h3 className="font-display text-lg font-medium text-obsidian-900 flex items-center gap-2">
-                      <SlidersHorizontal className="w-4 h-4 text-gold-500" />Filters
-                    </h3>
-                    {activeFilters > 0 && (
-                      <button onClick={clearAll} className="text-xs text-gold-600 font-medium">Clear ({activeFilters})</button>
-                    )}
-                  </div>
-
-                  <div className="space-y-5">
-                    {/* Category */}
-                    <div>
-                      <label className="input-label">Stay Type</label>
-                      <div className="space-y-1">
-                        {categories.map(c => (
-                          <button key={c.value} onClick={() => setActiveCategory(c.value)}
-                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs border transition-all ${activeCategory === c.value ? 'bg-gold-500 text-obsidian-900 border-gold-500' : 'bg-surface-subtle text-obsidian-500 border-surface-border hover:border-gold-300'}`}>
-                            <span>{c.emoji}</span>{c.label}
-                            {activeCategory === c.value && <CheckCircle2 className="w-3.5 h-3.5 ml-auto" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Area */}
-                    <div>
-                      <label className="input-label">Neighbourhood</label>
-                      <select className="input-field text-sm" value={selectedArea} onChange={e => setSelectedArea(e.target.value)}>
-                        <option value="all">All Areas</option>
-                        {neighborhoods.map(n => <option key={n.id} value={n.name}>{n.name}</option>)}
-                      </select>
-                    </div>
-
-                    {/* Price */}
-                    <div>
-                      <label className="input-label">Nightly Budget</label>
-                      <div className="space-y-1.5">
-                        {priceFilters.map((r, i) => (
-                          <button key={i} onClick={() => setPriceFilter(priceFilter === r ? null : r)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs border transition-all ${priceFilter === r ? 'bg-gold-500 text-obsidian-900 border-gold-500' : 'bg-surface-subtle text-obsidian-500 border-surface-border hover:border-gold-300'}`}>
-                            {r.label} {priceFilter === r && <CheckCircle2 className="w-3.5 h-3.5" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Bedrooms */}
-                    <div>
-                      <label className="input-label">Bedrooms</label>
-                      <div className="flex gap-1">
-                        {[0, 1, 2, 3, 4].map(n => (
-                          <button key={n} onClick={() => setMinBeds(n)}
-                            className={`flex-1 py-2 rounded-xl text-xs font-medium border ${minBeds === n ? 'bg-obsidian-900 text-white border-obsidian-900' : 'bg-surface-subtle text-obsidian-500 border-surface-border'}`}>
-                            {n === 0 ? 'Any' : `${n}+`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Toggles */}
-                    <div className="space-y-3 pt-3 border-t border-surface-border">
-                      {[
-                        { label: 'Verified Hosts Only', val: verifiedOnly, set: setVerifiedOnly },
-                        { label: 'Pool Available', val: poolOnly, set: setPoolOnly },
-                      ].map((t, i) => (
-                        <div key={i} className="flex items-center justify-between">
-                          <span className="text-sm text-obsidian-600">{t.label}</span>
-                          <div onClick={() => t.set(!t.val)} className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${t.val ? 'bg-gold-500' : 'bg-obsidian-200'}`}>
-                            <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${t.val ? 'translate-x-5' : 'translate-x-1'}`} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Booking Guide */}
-                <div className="card p-5">
-                  <h3 className="font-display text-base font-medium text-obsidian-900 mb-3 flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gold-500" /> How to Book
-                  </h3>
-                  <div className="space-y-3">
-                    {[
-                      { step: '1', text: 'Browse and pick your shortlet' },
-                      { step: '2', text: 'Tap WhatsApp to contact the host' },
-                      { step: '3', text: 'Confirm your dates and price' },
-                      { step: '4', text: 'Pay via Paystack or bank transfer' },
-                      { step: '5', text: 'Receive check-in details' },
-                    ].map((s, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <div className="w-6 h-6 rounded-full bg-obsidian-900 text-white text-xs font-mono font-bold flex items-center justify-center flex-shrink-0">{s.step}</div>
-                        <span className="text-xs text-obsidian-500">{s.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Host CTA */}
-                <div className="card p-5 bg-obsidian-900 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-grid-gold bg-grid opacity-30" />
-                  <div className="relative z-10 text-center">
-                    <div className="text-3xl mb-3">🏠</div>
-                    <h3 className="font-display text-base font-medium text-white mb-2">Host Your Property</h3>
-                    <p className="text-white/40 text-xs mb-4">Earn ₦1M+ per month listing your shortlet on Naya.</p>
-                    <Link href="/portal" className="btn-primary btn-sm w-full justify-center">Start Hosting</Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── RESULTS ────────────────────────────────────────────────── */}
-            <div className="lg:col-span-3">
-
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-                <div>
-                  <h2 className="font-display text-2xl font-medium text-obsidian-900">
-                    {filtered.length} Shortlet{filtered.length !== 1 ? 's' : ''} Available
-                  </h2>
-                  <p className="text-sm text-obsidian-400 mt-0.5">
-                    {selectedArea !== 'all' ? selectedArea : 'All areas'} · Port Harcourt
-                  </p>
-                </div>
-                <select className="input-field text-sm py-2" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-                  {sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-
-              {/* Active Filters */}
-              {activeFilters > 0 && (
-                <div className="flex flex-wrap gap-2 mb-5">
-                  {activeCategory !== 'all' && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold-50 border border-gold-200 text-xs text-gold-700">
-                      {categories.find(c => c.value === activeCategory)?.label}
-                      <button onClick={() => setActiveCategory('all')}><X className="w-3 h-3" /></button>
-                    </span>
-                  )}
-                  {selectedArea !== 'all' && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold-50 border border-gold-200 text-xs text-gold-700">
-                      <MapPin className="w-3 h-3" />{selectedArea}
-                      <button onClick={() => setSelectedArea('all')}><X className="w-3 h-3" /></button>
-                    </span>
-                  )}
-                  {priceFilter && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold-50 border border-gold-200 text-xs text-gold-700">
-                      {priceFilter.label} <button onClick={() => setPriceFilter(null)}><X className="w-3 h-3" /></button>
-                    </span>
-                  )}
-                  {poolOnly && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-xs text-blue-700">
-                      <Waves className="w-3 h-3" /> Pool <button onClick={() => setPoolOnly(false)}><X className="w-3 h-3" /></button>
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Grid */}
-              {filtered.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {filtered.map(p => <ShortletCard key={p.id} p={p} featured={p.isFeatured} />)}
-                </div>
-              ) : (
-                <div className="text-center py-20 card">
-                  <div className="text-5xl mb-4">🔍</div>
-                  <h3 className="font-display text-2xl font-medium text-obsidian-900 mb-3">No shortlets found</h3>
-                  <p className="text-obsidian-400 text-sm mb-6 max-w-sm mx-auto">Adjust your filters or search a different area.</p>
-                  <button onClick={clearAll} className="btn-primary">Clear Filters</button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── PRICE GUIDE ─────────────────────────────────────────────────── */}
-      <section className="section-padding bg-white">
-        <div className="page-container">
-          <div className="text-center mb-10">
-            <span className="section-number">Pricing Intelligence</span>
-            <h2 className="section-title">Average Nightly Rates by Area</h2>
-            <p className="section-desc mx-auto">Based on verified Naya shortlet listings. Updated March 2026.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { area: 'GRA Phase 2',  budget: '₦35K–50K',  midrange: '₦50K–120K', luxury: '₦120K–350K+', tag: 'Most Premium', color: 'border-gold-500' },
-              { area: 'Woji',         budget: '₦20K–40K',  midrange: '₦40K–90K',  luxury: '₦90K–200K',  tag: 'Best Value Luxury', color: 'border-emerald-500' },
-              { area: 'Old GRA',      budget: '₦30K–55K',  midrange: '₦55K–130K', luxury: '₦130K–250K+', tag: 'Heritage & Character', color: 'border-amber-500' },
-              { area: 'Trans Amadi',  budget: '₦25K–45K',  midrange: '₦45K–80K',  luxury: '₦80K–150K',  tag: 'Corporate Stays', color: 'border-blue-500' },
-              { area: 'Rumuola',      budget: '₦15K–28K',  midrange: '₦28K–50K',  luxury: '₦50K–90K',   tag: 'Budget-Friendly', color: 'border-purple-500' },
-              { area: 'Eleme',        budget: '₦30K–50K',  midrange: '₦50K–80K',  luxury: '₦80K–120K',  tag: 'Oil & Gas Zone', color: 'border-rose-500' },
-            ].map((r, i) => (
-              <div key={i} className={`card p-5 border-l-4 ${r.color}`}>
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="font-display text-lg font-medium text-obsidian-900">{r.area}</h3>
-                  <span className="text-[10px] px-2 py-1 rounded-full bg-surface-subtle text-obsidian-500 border border-surface-border">{r.tag}</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center py-1.5 border-b border-surface-border">
-                    <span className="text-xs text-obsidian-400">Budget</span>
-                    <span className="font-mono text-xs text-obsidian-700">{r.budget}/night</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1.5 border-b border-surface-border">
-                    <span className="text-xs text-obsidian-400">Mid-Range</span>
-                    <span className="font-mono text-xs text-obsidian-700">{r.midrange}/night</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1.5">
-                    <span className="text-xs text-obsidian-400">Luxury</span>
-                    <span className="font-mono text-xs font-bold text-gold-600">{r.luxury}/night</span>
-                  </div>
+              {
+                icon: '🏠',
+                title: 'Private Homeowners',
+                desc: 'Rent your home, apartment or spare room. Set your own price and availability. Earn from your property when you\'re away.',
+                cta: 'List Your Home',
+                color: 'from-gold-50 to-yellow-50',
+                border: 'border-gold-200',
+              },
+              {
+                icon: '🏢',
+                title: 'Serviced Apartment Operators',
+                desc: 'List your fully-serviced units with housekeeping and concierge. Reach corporate clients and long-stay guests.',
+                cta: 'List Your Apartments',
+                color: 'from-blue-50 to-indigo-50',
+                border: 'border-blue-200',
+              },
+              {
+                icon: '🏨',
+                title: 'Hotels & Guesthouses',
+                desc: 'Expand your bookings beyond your own website. Reach thousands of guests searching in Port Harcourt monthly.',
+                cta: 'List Your Hotel',
+                color: 'from-emerald-50 to-teal-50',
+                border: 'border-emerald-200',
+              },
+            ].map((type, i) => (
+              <div key={i} className={`flex items-start gap-4 p-5 rounded-2xl bg-gradient-to-br ${type.color} border ${type.border}`}>
+                <span className="text-4xl flex-shrink-0">{type.icon}</span>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-obsidian-900 mb-1">{type.title}</h3>
+                  <p className="text-xs text-obsidian-500 leading-relaxed mb-3">{type.desc}</p>
+                  <Link href="/portal/list"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-obsidian-700 hover:text-gold-600 transition-colors">
+                    {type.cta} <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               </div>
             ))}
@@ -728,75 +557,253 @@ export default function ShortletPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ────────────────────────────────────────────────── */}
-      <section className="section-padding bg-surface-bg adire-bg">
-        <div className="page-container">
-          <div className="text-center mb-10">
-            <span className="section-number">Guest Reviews</span>
-            <h2 className="section-title">What Our Guests Say</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {testimonials.map((t, i) => <TestimonialCard key={i} t={t} />)}
+      {/* ── FILTER BAR ───────────────────────────────────────────────── */}
+      <div className="sticky top-[68px] bg-white border-b border-surface-border z-30 shadow-sm">
+        <div className="page-container py-3">
+          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar">
+            {/* Filter button */}
+            <button
+              onClick={() => setShowFilters(p => !p)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all flex-shrink-0 ${
+                showFilters ? 'border-obsidian-900 bg-obsidian-900 text-white' : 'border-surface-border text-obsidian-700 hover:border-obsidian-400'
+              }`}>
+              <SlidersHorizontal className="w-4 h-4" />
+              Filters
+              {activeFilters > 0 && (
+                <span className="w-5 h-5 rounded-full bg-gold-500 text-obsidian-900 text-[10px] font-black flex items-center justify-center">
+                  {activeFilters}
+                </span>
+              )}
+            </button>
+
+            {/* Sort */}
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+              className="py-2.5 pl-3 pr-8 rounded-xl border border-surface-border text-sm font-medium text-obsidian-700 outline-none bg-white flex-shrink-0">
+              <option value="featured">Featured First</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="newest">Newest</option>
+            </select>
+
+            {/* Bed filters */}
+            {[0, 1, 2, 3, 4].map(n => (
+              <button key={n} onClick={() => setMinBeds(n)}
+                className={`px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all flex-shrink-0 ${
+                  minBeds === n
+                    ? 'border-obsidian-900 bg-obsidian-900 text-white'
+                    : 'border-surface-border text-obsidian-600 hover:border-obsidian-400'
+                }`}>
+                {n === 0 ? 'Any beds' : `${n}+ bed${n > 1 ? 's' : ''}`}
+              </button>
+            ))}
+
+            {/* View toggle */}
+            <div className="ml-auto flex items-center border border-surface-border rounded-xl overflow-hidden flex-shrink-0">
+              <button onClick={() => setView('grid')}
+                className={`p-2.5 transition-colors ${view === 'grid' ? 'bg-obsidian-900 text-white' : 'text-obsidian-400 hover:text-obsidian-700'}`}>
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+              <button onClick={() => setView('list')}
+                className={`p-2.5 transition-colors ${view === 'list' ? 'bg-obsidian-900 text-white' : 'text-obsidian-400 hover:text-obsidian-700'}`}>
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
-      </section>
 
-      {/* ── HOST CTA ─────────────────────────────────────────────────────── */}
-      <section className="py-20 bg-obsidian-900 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-gold bg-grid opacity-40" />
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-gold-500/8 blur-[100px]" />
-        <div className="page-container relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center max-w-4xl mx-auto">
-            <div>
-              <span className="section-number text-gold-500">For Property Owners</span>
-              <h2 className="font-display text-4xl font-light text-white mb-4 leading-tight">
-                Turn Your Property Into<br /><span className="gold-text">₦1M+ Per Month</span>
-              </h2>
-              <p className="text-white/40 text-base leading-relaxed mb-6">
-                List your furnished apartment as a Naya shortlet. We handle the verification, visibility, and guest trust — you handle check-ins and enjoy the income.
-              </p>
-              <div className="space-y-2 mb-8">
-                {['Free to list your property', 'We market to oil & gas professionals', 'Verification builds guest trust', 'Transparent pricing, no hidden cuts'].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-white/50 text-sm">
-                    <CheckCircle2 className="w-4 h-4 text-gold-500 flex-shrink-0" />{item}
+        {/* Expanded filter panel */}
+        {showFilters && (
+          <div className="border-t border-surface-border bg-surface-subtle">
+            <div className="page-container py-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-4">
+                <div>
+                  <label className="input-label">Search</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-obsidian-300" />
+                    <input value={search} onChange={e => setSearch(e.target.value)}
+                      placeholder="Search by name, area..."
+                      className="input-field pl-9 text-sm" />
                   </div>
-                ))}
-              </div>
-              <Link href="/portal" className="btn-primary btn-lg">Start Hosting on Naya <ArrowRight className="w-5 h-5" /></Link>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { value: '₦45K', label: 'Avg. nightly rate (1-bed GRA)' },
-                { value: '₦1.2M', label: 'Avg. monthly host earnings' },
-                { value: '94%', label: 'Occupancy rate (verified hosts)' },
-                { value: '4.9★', label: 'Average guest rating' },
-              ].map((s, i) => (
-                <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-                  <div className="font-display text-3xl font-light text-gold-400 mb-1">{s.value}</div>
-                  <div className="text-xs text-white/40 leading-relaxed">{s.label}</div>
                 </div>
+                <div>
+                  <label className="input-label">Neighbourhood</label>
+                  <select value={area} onChange={e => setArea(e.target.value)}
+                    className="input-field text-sm">
+                    {NEIGHBORHOODS.map(n => <option key={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="input-label">Sort By</label>
+                  <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                    className="input-field text-sm">
+                    <option value="featured">Featured First</option>
+                    <option value="price_asc">Price: Low → High</option>
+                    <option value="price_desc">Price: High → Low</option>
+                    <option value="newest">Newest First</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="input-label mb-2.5">Amenities</label>
+                <div className="flex flex-wrap gap-2">
+                  {AMENITY_FILTERS.map(a => {
+                    const Icon = AMENITY_ICONS[a]
+                    const active = selectedAmenities.includes(a)
+                    return (
+                      <button key={a} onClick={() => toggleAmenity(a)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                          active
+                            ? 'border-obsidian-900 bg-obsidian-900 text-white'
+                            : 'border-surface-border bg-white text-obsidian-600 hover:border-obsidian-400'
+                        }`}>
+                        {Icon && <Icon className="w-3.5 h-3.5" />}{a}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button onClick={resetFilters} className="btn-secondary btn-sm gap-2">
+                  <X className="w-3.5 h-3.5" />Clear All
+                </button>
+                <button onClick={() => { fetchListings(); setShowFilters(false) }} className="btn-primary btn-sm gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5" />Apply
+                </button>
+                {total > 0 && <p className="text-sm text-obsidian-500">{total} properties</p>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── LISTINGS ─────────────────────────────────────────────────── */}
+      <div className="page-container py-8">
+
+        {/* Results header */}
+        <div className="flex items-center justify-between mb-6">
+          {loading ? (
+            <div className="h-5 w-52 bg-surface-subtle rounded animate-pulse" />
+          ) : (
+            <p className="text-obsidian-700 font-medium">
+              {total > 0
+                ? <>{total} shortlet{total > 1 ? 's' : ''} in Port Harcourt{area !== 'All Areas' && ` · ${area}`}</>
+                : 'No properties found'
+              }
+            </p>
+          )}
+          <button onClick={fetchListings} disabled={loading}
+            className="flex items-center gap-1.5 text-sm text-obsidian-400 hover:text-obsidian-700 transition-colors">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />Refresh
+          </button>
+        </div>
+
+        {/* Loading skeletons */}
+        {loading && (
+          <div className={view === 'grid'
+            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+            : 'flex flex-col gap-4'
+          }>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="aspect-[4/3] rounded-2xl bg-surface-subtle mb-3" />
+                <div className="h-3 bg-surface-subtle rounded w-2/3 mb-2" />
+                <div className="h-4 bg-surface-subtle rounded w-full mb-2" />
+                <div className="h-3 bg-surface-subtle rounded w-1/2 mb-2" />
+                <div className="h-5 bg-surface-subtle rounded w-1/3" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Results */}
+        {!loading && filtered.length === 0 && <EmptyState onReset={resetFilters} />}
+
+        {!loading && filtered.length > 0 && (
+          <>
+            <div className={view === 'grid'
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+              : 'flex flex-col gap-4'
+            }>
+              {filtered.map(l => (
+                <ShortletCard key={l.id} listing={l} view={view} />
               ))}
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ── BOTTOM CTA ──────────────────────────────────────────────────── */}
-      <section className="py-16 bg-surface-bg">
-        <div className="page-container text-center">
-          <h2 className="font-display text-3xl font-medium text-obsidian-900 mb-3">Need Help Choosing?</h2>
-          <p className="text-obsidian-400 mb-6 max-w-md mx-auto text-sm">Tell us your dates, budget, and purpose of stay — our team will recommend the perfect shortlet within 30 minutes.</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a href="https://wa.me/2348168117004" target="_blank" rel="noopener noreferrer" className="btn-primary">
-              <MessageCircle className="w-4 h-4" /> WhatsApp Us
-            </a>
-            <a href="tel:+2348168117004" className="btn-secondary">
-              <Phone className="w-4 h-4" /> Call Us
-            </a>
-          </div>
-        </div>
-      </section>
+            {/* Pagination */}
+            {total > 24 && (
+              <div className="flex items-center justify-center gap-3 mt-12">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="btn-secondary px-5 gap-2 disabled:opacity-40">
+                  <ChevronLeft className="w-4 h-4" />Previous
+                </button>
+                <span className="text-sm text-obsidian-500 px-4">
+                  Page {page} of {Math.ceil(total / 24)}
+                </span>
+                <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / 24)}
+                  className="btn-secondary px-5 gap-2 disabled:opacity-40">
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
+        {/* ── WHY NAYA SHORTLETS ─────────────────────────────── */}
+        <section className="mt-20 mb-8">
+          <div className="text-center mb-10">
+            <span className="section-number">Why Choose Naya Shortlets</span>
+            <h2 className="section-title">The Smarter Way to Book</h2>
+            <p className="text-obsidian-400 max-w-xl mx-auto mt-3 text-sm">
+              Verified properties, transparent pricing, direct contact with hosts.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              { icon: '🛡', title: 'RSSPC Verified Hosts', desc: 'Every professional agent and operator is verified against the official RSSPC register for your safety and peace of mind.' },
+              { icon: '💬', title: 'Direct Contact', desc: 'No middlemen. Contact hosts directly via WhatsApp or phone for instant responses, custom arrangements and negotiation.' },
+              { icon: '🔐', title: 'Transparent & Secure', desc: 'Clear pricing, no hidden fees. Real photos, full property details, and honest reviews from previous guests.' },
+            ].map((f, i) => (
+              <div key={i} className="card p-6 text-center hover:shadow-lg transition-all group">
+                <div className="text-5xl mb-4 group-hover:scale-110 transition-transform inline-block">{f.icon}</div>
+                <h3 className="font-semibold text-obsidian-900 mb-2">{f.title}</h3>
+                <p className="text-sm text-obsidian-500 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── HOST CTA ───────────────────────────────────────── */}
+        <section className="mt-8">
+          <div className="relative bg-obsidian-900 rounded-3xl p-8 md:p-12 overflow-hidden">
+            <div className="absolute inset-0 bg-grid-gold bg-grid opacity-20" />
+            <div className="absolute top-0 right-0 w-64 h-64 bg-gold-500/10 rounded-full blur-[80px]" />
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-5 h-5 text-gold-500" />
+                  <span className="text-gold-400 text-sm font-semibold">List on Naya</span>
+                </div>
+                <h2 className="font-display text-3xl font-light text-white mb-3">
+                  Have a property to rent out?
+                </h2>
+                <p className="text-white/50 text-sm max-w-lg">
+                  Whether you're a homeowner, serviced apartment operator, or hotel — list on Naya and reach thousands of guests monthly in Port Harcourt.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 flex-shrink-0">
+                <Link href="/portal/list" className="btn-primary gap-2 whitespace-nowrap justify-center">
+                  <Plus className="w-4 h-4" />List Your Property
+                </Link>
+                <Link href="/register" className="btn-ghost text-white/70 border-white/20 gap-2 justify-center">
+                  Create Agent Account
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

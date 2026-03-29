@@ -3,6 +3,7 @@ import './globals.css'
 import Navbar from '@/components/layout/Navbar'
 import { DiasporaProvider, DiasporaBanner } from '@/components/features/DiasporaMode'
 import ThemeToggle from '@/components/features/ThemeToggle'
+import AIChat from '@/components/features/AIChat'
 import Footer from '@/components/layout/Footer'
 
 export const metadata: Metadata = {
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <Footer />
           <ThemeToggle />
+          <AIChat />
         </DiasporaProvider>
       </body>
     </html>

@@ -29,6 +29,7 @@ const moreLinks = [
   { label: 'Property Valuation',     href: '/tools/valuation' },
   { label: 'Rent-to-Own Calculator', href: '/tools/rent-to-own' },
   { label: 'Agent League',           href: '/agent-league' },
+      { label: 'Price Alerts 🔔', href: '/alerts' },
       { label: 'Naya Managed', href: '/managed' },
 ]
 

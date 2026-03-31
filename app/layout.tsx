@@ -3,6 +3,9 @@ import './globals.css'
 import Navbar from '@/components/layout/Navbar'
 import { DiasporaProvider, DiasporaBanner } from '@/components/features/DiasporaMode'
 import ThemeToggle from '@/components/features/ThemeToggle'
+import BottomNav from '@/components/layout/BottomNav'
+import MobileHeader from '@/components/layout/MobileHeader'
+import MobileFAB from '@/components/features/MobileFAB'
 import AIChat from '@/components/features/AIChat'
 import Footer from '@/components/layout/Footer'
 
@@ -18,12 +21,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#0A0A0B" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Outfit:wght@200;300;400;500;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-screen flex flex-col">
         <DiasporaProvider>
+          <MobileHeader />
           <DiasporaBanner />
           <Navbar />
           <main className="flex-1 pt-16 md:pt-[68px]">
@@ -31,6 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <Footer />
           <ThemeToggle />
+          <BottomNav />
+          <MobileFAB />
           <AIChat />
         </DiasporaProvider>
       </body>

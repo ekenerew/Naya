@@ -1,6 +1,6 @@
+'use client'
 export const dynamic = 'force-dynamic';
 
-'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Search, SlidersHorizontal, MapPin, TrendingUp, Minus, X, ArrowRight, CheckCircle2, Map, LayoutGrid, List, Phone, MessageCircle, Star, Shield } from 'lucide-react'

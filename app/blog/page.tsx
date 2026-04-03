@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
@@ -47,7 +49,7 @@ const sortOptions = [
 
 const guides = [
   {
-    title: 'First-Time Buyer\'s Roadmap',
+    title: 'First-Time Buyer's Roadmap',
     desc: 'A complete step-by-step guide from budget to keys for buying your first property in Port Harcourt.',
     steps: ['Set your budget', 'Get pre-approved', 'Choose your area', 'Find a verified agent', 'Make an offer', 'Due diligence', 'Sign the deed'],
     emoji: '🏠', color: 'border-gold-500', link: '/blog/first-time-buyer-guide-port-harcourt',
@@ -55,17 +57,17 @@ const guides = [
   {
     title: 'Property Due Diligence',
     desc: 'The 10-point checklist every Nigerian buyer must complete before signing anything or paying any money.',
-    steps: ['Verify title at Lands Registry', 'Commission a survey', 'Check building approvals', 'Inspect for encumbrances', 'Verify seller\'s identity', 'Review all documents', 'Engage a property lawyer'],
+    steps: ['Verify title at Lands Registry', 'Commission a survey', 'Check building approvals', 'Inspect for encumbrances', 'Verify seller's identity', 'Review all documents', 'Engage a property lawyer'],
     emoji: '📋', color: 'border-blue-500', link: '/blog/property-due-diligence-checklist-nigeria',
   },
   {
     title: 'Land Title Explained',
-    desc: 'The difference between C of O, Deed of Assignment, and Governor\'s Consent — and why it matters for your money.',
-    steps: ['C of O — strongest title', 'Governor\'s Consent — state-backed', 'Deed of Assignment — common in estates', 'Survey Plan — boundaries only', 'Family Land — high risk'],
+    desc: 'The difference between C of O, Deed of Assignment, and Governor's Consent — and why it matters for your money.',
+    steps: ['C of O — strongest title', 'Governor's Consent — state-backed', 'Deed of Assignment — common in estates', 'Survey Plan — boundaries only', 'Family Land — high risk'],
     emoji: '📜', color: 'border-emerald-500', link: '/blog/understanding-land-titles-nigeria-coo-vs-doa',
   },
   {
-    title: 'Diaspora Buyer\'s Checklist',
+    title: 'Diaspora Buyer's Checklist',
     desc: 'How to safely buy property in Nigeria from the UK, US, Canada, or anywhere in the diaspora.',
     steps: ['Appoint a trusted local agent', 'Grant Power of Attorney', 'Open a domiciliary account', 'Use escrow for payments', 'Verify all documents remotely', 'Arrange property management'],
     emoji: '🌍', color: 'border-purple-500', link: '/blog/diaspora-buying-property-nigeria-guide',

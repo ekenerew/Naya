@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
@@ -93,7 +95,7 @@ function ImageCarousel({ images, title, isFeatured, isVerified, virtualTour }: {
     'from-zinc-800 to-zinc-900',
     'from-neutral-800 to-neutral-900',
   ]
-  const grad = gradients[title.charCodeAt(0) % gradients.length]
+  const grad = gradients[title.charCodeAt(0)  0radients.length]
 
   return (
     <div className="relative aspect-[4/3] overflow-hidden rounded-t-2xl group">
@@ -519,7 +521,7 @@ export default function ShortletPage() {
               {
                 icon: '🏠',
                 title: 'Private Homeowners',
-                desc: 'Rent your home, apartment or spare room. Set your own price and availability. Earn from your property when you\'re away.',
+                desc: 'Rent your home, apartment or spare room. Set your own price and availability. Earn from your property when you're away.',
                 cta: 'List Your Home',
                 color: 'from-gold-50 to-yellow-50',
                 border: 'border-gold-200',

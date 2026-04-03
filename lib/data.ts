@@ -50,3 +50,8 @@ export const propertyTypeEmojis: Record<string, string> = {
   commercial: "🏗️",
   villa: "🏡",
 };
+
+export const commercialListings: any[] = [];
+export const getPropertyBySlug = (slug: string): any => null;
+export const getAgentById = (id: string): any => null;
+export const getPropertiesByNeighborhood = (n: string): any[] => [];

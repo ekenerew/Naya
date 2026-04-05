@@ -3,7 +3,22 @@ export const dynamic = 'force-dynamic';
 export const properties: any[] = [];
 export const agents: any[] = [];
 export const neighborhoods: any[] = [];
-export const blogPosts: any[] = [];
+export const blogPosts: any[] = [
+  {
+    id: '1',
+    title: 'Coming Soon',
+    slug: 'coming-soon',
+    excerpt: 'Articles coming soon.',
+    content: '',
+    category: 'General',
+    tags: [],
+    author: { name: 'Naya', avatar: '', bio: '' },
+    publishedAt: new Date().toISOString(),
+    readTime: 1,
+    featured: false,
+    image: '',
+  },
+];
 export const landListings: any[] = [];
 export const rentalListings: any[] = [];
 export const shortletListings: any[] = [];
